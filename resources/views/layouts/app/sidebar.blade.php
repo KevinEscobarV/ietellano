@@ -16,6 +16,14 @@
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
                 </flux:sidebar.group>
+
+                @hasanyrole('super-admin|admin')
+                <flux:sidebar.group :heading="__('Administration')" class="grid">
+                    <flux:sidebar.item icon="shield-check" :href="route('admin.roles')" :current="request()->routeIs('admin.roles')" wire:navigate>
+                        {{ __('Roles') }}
+                    </flux:sidebar.item>
+                </flux:sidebar.group>
+                @endhasanyrole
             </flux:sidebar.nav>
 
             <flux:spacer />
