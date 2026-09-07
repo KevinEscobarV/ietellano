@@ -144,7 +144,9 @@ return [
     */
 
     'features' => [
-        Features::registration(),
+        // El registro público está cerrado a propósito: las cuentas de docentes y
+        // administrativos las crea un administrador desde el panel de usuarios.
+        // Features::registration(),
         Features::resetPasswords(),
         Features::emailVerification(),
         Features::twoFactorAuthentication([

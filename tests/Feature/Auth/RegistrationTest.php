@@ -1,27 +1,37 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
-beforeEach(function () {
-    $this->skipUnlessFortifyHas(Features::registration());
+test('public registration is closed', function () {
+    expect(Features::enabled(Features::registration()))->toBeFalse()
+        ->and(Route::has('register'))->toBeFalse();
+
+    $this->get('/register')->assertNotFound();
 });
 
-test('registration screen can be rendered', function () {
-    $response = $this->get(route('register'));
+describe('when registration is enabled', function () {
+    beforeEach(function () {
+        $this->skipUnlessFortifyHas(Features::registration());
+    });
 
-    $response->assertOk();
-});
+    test('registration screen can be rendered', function () {
+        $response = $this->get(route('register'));
 
-test('new users can register', function () {
-    $response = $this->post(route('register.store'), [
-        'name' => 'John Doe',
-        'email' => 'test@example.com',
-        'password' => 'password',
-        'password_confirmation' => 'password',
-    ]);
+        $response->assertOk();
+    });
 
-    $response->assertSessionHasNoErrors()
-        ->assertRedirect(route('dashboard', absolute: false));
+    test('new users can register', function () {
+        $response = $this->post(route('register.store'), [
+            'name' => 'John Doe',
+            'email' => 'test@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+        ]);
 
-    $this->assertAuthenticated();
+        $response->assertSessionHasNoErrors()
+            ->assertRedirect(route('dashboard', absolute: false));
+
+        $this->assertAuthenticated();
+    });
 });
