@@ -15,6 +15,8 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+    'institution' => env('APP_INSTITUTION', 'Institución Educativa Técnica Empresarial del Llano'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

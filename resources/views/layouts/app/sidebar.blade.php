@@ -19,8 +19,32 @@
 
                 @hasanyrole('super-admin|admin')
                 <flux:sidebar.group :heading="__('Administration')" class="grid">
+                    <flux:sidebar.item icon="users" :href="route('admin.users')" :current="request()->routeIs('admin.users')" wire:navigate>
+                        {{ __('Users') }}
+                    </flux:sidebar.item>
                     <flux:sidebar.item icon="shield-check" :href="route('admin.roles')" :current="request()->routeIs('admin.roles')" wire:navigate>
                         {{ __('Roles') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="academic-cap" :href="route('admin.students')" :current="request()->routeIs('admin.students')" wire:navigate>
+                        {{ __('Estudiantes') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="user-group" :href="route('admin.teachers')" :current="request()->routeIs('admin.teachers')" wire:navigate>
+                        {{ __('Docentes') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="squares-2x2" :href="route('admin.structure')" :current="request()->routeIs('admin.structure')" wire:navigate>
+                        {{ __('Estructura académica') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="arrow-up-tray" :href="route('admin.grades')" :current="request()->routeIs('admin.grades')" wire:navigate>
+                        {{ __('Calificaciones') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="pencil-square" :href="route('admin.grade-editor')" :current="request()->routeIs('admin.grade-editor')" wire:navigate>
+                        {{ __('Editar notas') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="document-text" :href="route('admin.boletines')" :current="request()->routeIs('admin.boletines')" wire:navigate>
+                        {{ __('Boletines') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="document-check" :href="route('admin.certificates')" :current="request()->routeIs('admin.certificates')" wire:navigate>
+                        {{ __('Certificados') }}
                     </flux:sidebar.item>
                 </flux:sidebar.group>
                 @endhasanyrole
