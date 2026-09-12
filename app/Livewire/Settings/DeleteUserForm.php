@@ -18,6 +18,8 @@ class DeleteUserForm extends Component
      */
     public function deleteUser(Logout $logout): void
     {
+        abort_unless(Auth::user()->managesOwnProfile(), 403);
+
         $this->validate([
             'password' => $this->currentPasswordRules(),
         ]);

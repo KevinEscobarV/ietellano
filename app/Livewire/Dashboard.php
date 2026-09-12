@@ -2,12 +2,14 @@
 
 namespace App\Livewire;
 
+use App\Models\ClassSession;
 use App\Models\Course;
 use App\Models\Cycle;
 use App\Models\Enrollment;
 use App\Models\Grade;
 use App\Models\Student;
 use App\Models\Teacher;
+use App\Services\AttendanceService;
 use App\Services\BoletinService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;
@@ -294,7 +296,22 @@ class Dashboard extends Component
             ->where('email', 'like', '%@iellano.com')
             ->count();
 
+        $sessions = ClassSession::whereIn('cycle_id', $cycles->pluck('id'))->count();
+
+        $behindOnAttendance = $sessions === 0
+            ? 0
+            : count(array_filter(
+                app(AttendanceService::class)->progressFor($courses),
+                fn (array $line) => $line['pending'] > 0,
+            ));
+
         return array_values(array_filter([
+            $sessions === 0 && $cycles->isNotEmpty()
+                ? ['tone' => 'warning', 'text' => __('Los ciclos no tienen calendario de clases'), 'route' => 'admin.structure']
+                : null,
+            $behindOnAttendance > 0
+                ? ['tone' => 'warning', 'text' => trans_choice('{1}Un curso con asistencia pendiente|[2,*]:count cursos con asistencia pendiente', $behindOnAttendance, ['count' => $behindOnAttendance]), 'route' => 'admin.attendance']
+                : null,
             $teachers > 0
                 ? ['tone' => 'warning', 'text' => trans_choice('{1}Un docente sin cuenta de acceso|[2,*]:count docentes sin cuenta de acceso', $teachers, ['count' => $teachers]), 'route' => 'admin.teachers']
                 : ['tone' => 'ok', 'text' => __('Todos los docentes tienen acceso'), 'route' => null],

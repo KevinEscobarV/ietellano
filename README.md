@@ -64,7 +64,7 @@ php artisan db:seed
 |---|---|
 | `super-admin` | Todo. Pasa cualquier verificación de permisos. |
 | `admin` | Todo el panel excepto eliminar roles. |
-| `docente` | Solo su portal: las materias que tiene asignadas y las notas de esas materias. |
+| `docente` | Solo su portal: sus materias, las notas y la asistencia de esas materias. Ve sus datos personales pero no los edita ni puede borrar su cuenta; lo único suyo es la contraseña. |
 | `editor` / `viewer` | Consulta del tablero y de usuarios. |
 
 ### Cómo entra un docente
@@ -87,14 +87,39 @@ Cycle  ─┬─ Group ──── Enrollment ──── Student
         └─ Course ────┘                   │
              │  (ciclo + materia + grupo + periodo + docente)
              │                            │
-             └────────── Grade ───────────┘
-                      (una nota por curso y estudiante)
+             ├────────── Grade ───────────┤
+             │        (una nota por curso y estudiante)
+             │                            │
+             └─ Attendance ── ClassSession ┘
+                (una marca por curso, día y estudiante)
+
+Cycle ── EditWindow ── Course   (permiso con plazo para editar un ciclo ya cerrado)
 ```
 
 - Un **ciclo** es un semestre de un nivel (`Ciclo 3B · 2026-2`). Puede apuntar al ciclo anterior para armar boletines de dos semestres.
 - Un **curso** es la combinación materia + grupo + periodo. Un curso sin grupo cubre a todo el ciclo.
 - Las **áreas** agrupan materias para que el boletín muestre una línea por área con sus componentes.
 - Escala de **0 a 5**, se aprueba con **3.0**. Desempeño según el Decreto 1290: Superior ≥ 4.6 · Alto ≥ 4.0 · Básico ≥ 3.0 · Bajo por debajo.
+
+### Asistencia
+
+Una falla pertenece a una clase concreta: **curso + día**. Eso es lo que permite decir "perdió Matemáticas por inasistencia", que un registro por jornada no soportaría.
+
+El **calendario** se arma primero, en *Estructura académica → Calendario*: día de la semana, primer día y último día, y el sistema genera una sesión por semana. Los festivos se quitan uno a uno después. Que exista la sesión significa que ese día hubo clase.
+
+Luego cada **docente** marca desde su portal, en la materia y el día: presente, falló o justificada. Marcar a uno guarda la planilla entera — así queda registrado que la clase se dictó, y un día sin fallas no se confunde con un día en que nadie pasó lista.
+
+De ahí salen tres cosas: la consulta por ciclo del panel (*Asistencia*, con exportación a CSV), la columna de fallas del boletín, y el aviso del tablero cuando hay cursos con asistencia pendiente.
+
+> **Una clase solo cuenta como dictada si alguien pasó asistencia.** Un curso donde nunca se pasó lista no tiene denominador, así que no se le reprocha nada a ningún estudiante. El tope para perder la materia es `max_absence_rate` en `config/institution.php`, hoy en 20% de las clases dictadas, y solo cuentan las fallas **sin justificar**.
+
+### Cierre de semestre
+
+Un semestre termina cerrándose, en *Calificaciones → Cierre de semestre*. A partir de ahí el docente **sigue viendo** sus planillas de notas y de asistencia, pero ya no puede escribir en ellas. El administrador no pierde nada: el editor de notas del panel sigue funcionando y muestra un aviso de que ese semestre ya está cerrado.
+
+Para una corrección puntual se abre una **ventana de edición**: un permiso con fecha y hora de vencimiento sobre un ciclo entero o sobre una sola materia. Mientras dura, ese docente vuelve a escribir; después se cierra sola. La ventana no se borra al vencerse — queda con quién la abrió y por qué, que es lo primero que se pregunta cuando una nota cambió después del cierre.
+
+> La escritura la decide `CoursePolicy`: `view` es "es mi materia" y `grade`/`attend` son eso **más** que el semestre esté abierto. Quien resuelve lo segundo es `TermService`.
 
 ### Cómo se separan los semestres
 
@@ -242,6 +267,7 @@ php artisan up
 | Rutas o vistas | `php artisan optimize:clear` |
 | `composer.json` / `composer.lock` | `composer install --no-dev --optimize-autoloader` |
 | Una migración nueva | `php artisan migrate --force` |
+| Algo en `config/` (por ejemplo el tope de inasistencias) | editar el archivo y `php artisan optimize:clear` |
 | Un rol o permiso nuevo | `php artisan db:seed --class=RolesAndPermissionsSeeder --force` (usa `firstOrCreate`, no pisa lo existente) |
 | Solo código PHP | `git pull` y listo |
 
@@ -267,10 +293,12 @@ app/
 │   ├── Dashboard.php     Tablero: avance de notas, matrícula, pendientes
 │   ├── Admin/            Panel: usuarios, roles, estudiantes, docentes,
 │   │                     estructura, notas, boletines, certificados
-│   ├── Teacher/          Portal docente: MyCourses y Gradebook
+│   ├── Teacher/          Portal docente: MyCourses, Gradebook y Attendance
 │   └── Settings/         Perfil, seguridad, apariencia
-├── Policies/             CoursePolicy: quién puede calificar qué
-├── Services/             BoletinService, CertificateService, GradeImporter
+├── Policies/             CoursePolicy: quién puede calificar qué, y hasta cuándo
+├── Enums/                AttendanceStatus: presente, falló, justificada
+├── Services/             AttendanceService, BoletinService, CertificateService,
+│                         GradeImporter, TermService
 │                         y sus exportadores a PDF
 └── Support/              XlsxReader, ResizesInstitutionLogo
 

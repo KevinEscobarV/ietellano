@@ -35,6 +35,8 @@ class Profile extends Component
     {
         $user = Auth::user();
 
+        abort_unless($user->managesOwnProfile(), 403);
+
         $validated = $this->validate($this->profileRules($user->id));
 
         $user->fill($validated);
@@ -72,9 +74,22 @@ class Profile extends Component
         return Auth::user() instanceof MustVerifyEmail && ! Auth::user()->hasVerifiedEmail();
     }
 
+    /**
+     * Un docente ve sus datos pero no los edita: los lleva la coordinación.
+     */
+    #[Computed]
+    public function canEdit(): bool
+    {
+        return Auth::user()->managesOwnProfile();
+    }
+
     #[Computed]
     public function showDeleteUser(): bool
     {
+        if (! $this->canEdit) {
+            return false;
+        }
+
         return ! Auth::user() instanceof MustVerifyEmail
             || (Auth::user() instanceof MustVerifyEmail && Auth::user()->hasVerifiedEmail());
     }

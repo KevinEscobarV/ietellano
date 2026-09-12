@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\AttendanceStatus;
+use App\Models\Attendance;
 use App\Models\Course;
 use App\Models\Cycle;
 use App\Models\Grade;
@@ -85,12 +87,30 @@ class BoletinService
             ->whereIn('course_id', $courses->pluck('id'))
             ->pluck('score', 'course_id');
 
+        // Clases dictadas y fallas del estudiante, en el mismo viaje que las
+        // notas: el boletín las muestra al lado de cada materia.
+        $held = Attendance::query()
+            ->whereIn('course_id', $courses->pluck('id'))
+            ->selectRaw('course_id, count(distinct class_session_id) as total')
+            ->groupBy('course_id')
+            ->pluck('total', 'course_id');
+
+        $absences = Attendance::query()
+            ->where('student_id', $student->id)
+            ->whereIn('course_id', $courses->pluck('id'))
+            ->where('status', AttendanceStatus::Absent)
+            ->selectRaw('course_id, count(*) as total')
+            ->groupBy('course_id')
+            ->pluck('total', 'course_id');
+
         $subjects = [];
 
         foreach ($courses as $course) {
             $subjects[$course->subject_id]['name'] ??= $course->subject->name;
             $subjects[$course->subject_id]['teacher'] ??= $course->teacher?->name;
             $subjects[$course->subject_id]['periods'][$course->period] = $scores[$course->id] ?? null;
+            $subjects[$course->subject_id]['held'] = ($subjects[$course->subject_id]['held'] ?? 0) + (int) ($held[$course->id] ?? 0);
+            $subjects[$course->subject_id]['absences'] = ($subjects[$course->subject_id]['absences'] ?? 0) + (int) ($absences[$course->id] ?? 0);
         }
 
         return $subjects;
@@ -114,6 +134,7 @@ class BoletinService
                 'p1' => $this->toFloat($p1),
                 'p2' => $this->toFloat($p2),
                 'final' => $this->average([$p1, $p2]),
+                ...$this->attendanceLine($data['held'] ?? 0, $data['absences'] ?? 0),
             ];
         }
 
@@ -139,6 +160,10 @@ class BoletinService
                 'sem1' => $sem1,
                 'sem2' => $sem2,
                 'final' => $this->average([$sem1, $sem2]),
+                ...$this->attendanceLine(
+                    ($current[$subjectId]['held'] ?? 0) + ($previous[$subjectId]['held'] ?? 0),
+                    ($current[$subjectId]['absences'] ?? 0) + ($previous[$subjectId]['absences'] ?? 0),
+                ),
             ];
         }
 
@@ -191,6 +216,10 @@ class BoletinService
             'type' => 'area',
             'teacher' => null,
             'final' => $this->average(array_column($members, 'final')),
+            ...$this->attendanceLine(
+                (int) array_sum(array_column($members, 'held')),
+                (int) array_sum(array_column($members, 'absences')),
+            ),
             'components' => array_values(array_map(
                 fn (array $m) => $both
                     ? ['name' => $m['name'], 'teacher' => $m['teacher'] ?? null, 'sem1' => $m['sem1'], 'sem2' => $m['sem2'], 'final' => $m['final']]
@@ -208,6 +237,21 @@ class BoletinService
         }
 
         return $line;
+    }
+
+    /**
+     * Fallas de una línea del boletín. Se pierde la materia cuando las
+     * inasistencias sin justificar pasan del tope de la institución.
+     *
+     * @return array{held: int, absences: int, lost_by_absence: bool}
+     */
+    private function attendanceLine(int $held, int $absences): array
+    {
+        return [
+            'held' => $held,
+            'absences' => $absences,
+            'lost_by_absence' => $held > 0 && ($absences / $held) > AttendanceService::maxAbsenceRate(),
+        ];
     }
 
     /**

@@ -11,9 +11,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['code', 'level', 'semester', 'year', 'name', 'previous_cycle_id'])]
+#[Fillable(['code', 'level', 'semester', 'year', 'name', 'previous_cycle_id', 'starts_on', 'ends_on', 'class_weekday', 'closed_at'])]
 class Cycle extends Model
 {
+    protected function casts(): array
+    {
+        return ['starts_on' => 'date', 'ends_on' => 'date', 'closed_at' => 'datetime'];
+    }
+
     /**
      * Cada nivel se repite semestre a semestre, así que el nombre por sí solo no
      * distingue el "Ciclo 5" de 2026-1 del de 2026-2.
@@ -30,6 +35,20 @@ class Cycle extends Model
     protected function ordered(Builder $query): void
     {
         $query->orderByDesc('year')->orderByDesc('semester')->orderBy('level');
+    }
+
+    /**
+     * Un semestre cerrado ya no lo toca el docente: sus notas y su asistencia
+     * quedan como quedaron, salvo que un administrador abra una ventana.
+     */
+    public function isClosed(): bool
+    {
+        return $this->closed_at !== null;
+    }
+
+    public function editWindows(): HasMany
+    {
+        return $this->hasMany(EditWindow::class);
     }
 
     public function previousCycle(): BelongsTo
@@ -50,6 +69,11 @@ class Cycle extends Model
     public function enrollments(): HasMany
     {
         return $this->hasMany(Enrollment::class);
+    }
+
+    public function sessions(): HasMany
+    {
+        return $this->hasMany(ClassSession::class);
     }
 
     public function areas(): HasMany

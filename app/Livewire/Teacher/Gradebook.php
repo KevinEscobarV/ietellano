@@ -6,9 +6,12 @@ use App\Models\Course;
 use App\Models\Grade;
 use App\Models\Student;
 use App\Services\BoletinService;
+use App\Services\TermService;
+use Carbon\CarbonInterface;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Livewire\Attributes\Computed;
 use Livewire\Component;
 
 class Gradebook extends Component
@@ -32,10 +35,30 @@ class Gradebook extends Component
 
     public function mount(Course $course): void
     {
-        $this->authorize('grade', $course);
+        $this->authorize('view', $course);
 
         $this->course = $course->load('subject', 'group', 'cycle');
         $this->scores = $this->savedScores();
+    }
+
+    /**
+     * Si la planilla se puede escribir ahora mismo. Se consulta en cada
+     * petición y no se guarda en el componente: una ventana puede vencerse con
+     * la pantalla abierta.
+     */
+    #[Computed]
+    public function editable(): bool
+    {
+        return auth()->user()->can('grade', $this->course);
+    }
+
+    /**
+     * Hasta cuándo dura el permiso de un semestre cerrado, para avisarlo.
+     */
+    #[Computed]
+    public function openUntil(): ?CarbonInterface
+    {
+        return app(TermService::class)->openUntil($this->course);
     }
 
     private function pageTitle(): string
@@ -76,6 +99,8 @@ class Gradebook extends Component
             return;
         }
 
+        $this->authorize('grade', $this->course);
+
         $studentId = (int) $key;
 
         abort_unless($this->isInRoster($studentId), 403);
@@ -89,6 +114,8 @@ class Gradebook extends Component
 
     public function saveAll(): void
     {
+        $this->authorize('grade', $this->course);
+
         $this->validate();
 
         $roster = $this->rosterIds();

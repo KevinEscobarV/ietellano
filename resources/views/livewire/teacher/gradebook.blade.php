@@ -64,6 +64,8 @@
         </div>
     </div>
 
+    <x-term-notice :editable="$this->editable" :until="$this->openUntil" />
+
     {{-- Barra de avance: se queda arriba mientras el docente baja por la lista --}}
     <div
         x-data="{ saved: false, timer: null }"
@@ -112,9 +114,11 @@
                     {{ __('Guardado') }}
                 </span>
 
-                <flux:button size="sm" variant="primary" icon="check" wire:click="saveAll" wire:loading.attr="disabled">
-                    {{ __('Guardar todo') }}
-                </flux:button>
+                @if ($this->editable)
+                    <flux:button size="sm" variant="primary" icon="check" wire:click="saveAll" wire:loading.attr="disabled">
+                        {{ __('Guardar todo') }}
+                    </flux:button>
+                @endif
             </div>
         </div>
 
@@ -156,9 +160,11 @@
             </button>
         @endif
 
-        <flux:text size="sm" class="w-full text-zinc-400 sm:ms-auto sm:w-auto">
-            {{ __('Enter o ↓ pasa al siguiente estudiante') }}
-        </flux:text>
+        @if ($this->editable)
+            <flux:text size="sm" class="w-full text-zinc-400 sm:ms-auto sm:w-auto">
+                {{ __('Enter o ↓ pasa al siguiente estudiante') }}
+            </flux:text>
+        @endif
     </div>
 
     {{-- Planilla --}}
@@ -229,9 +235,10 @@
                         inputmode="decimal"
                         data-score
                         wire:model.blur="scores.{{ $student->id }}"
+                        @readonly(! $this->editable)
                         placeholder="—"
                         aria-label="{{ __('Nota de :name', ['name' => $student->fullName()]) }}"
-                        class="w-full rounded-lg border bg-white px-2 py-2 text-center text-lg font-semibold tabular-nums transition focus:outline-none focus:ring-2 dark:bg-zinc-900 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none {{ $tone['field'] }}"
+                        class="w-full rounded-lg border bg-white px-2 py-2 text-center text-lg font-semibold tabular-nums transition focus:outline-none focus:ring-2 read-only:cursor-default read-only:opacity-75 dark:bg-zinc-900 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none {{ $tone['field'] }}"
                     >
 
                     @error('scores.'.$student->id)
@@ -256,12 +263,16 @@
     @if ($students->isNotEmpty())
         <div class="mt-4 flex items-center justify-between gap-4">
             <flux:text size="sm" class="text-zinc-400">
-                {{ __('Cada nota se guarda sola al salir de la casilla.') }}
+                {{ $this->editable
+                    ? __('Cada nota se guarda sola al salir de la casilla.')
+                    : __('Planilla en solo lectura.') }}
             </flux:text>
 
-            <flux:button variant="primary" icon="check" wire:click="saveAll" wire:loading.attr="disabled">
-                {{ __('Guardar todo') }}
-            </flux:button>
+            @if ($this->editable)
+                <flux:button variant="primary" icon="check" wire:click="saveAll" wire:loading.attr="disabled">
+                    {{ __('Guardar todo') }}
+                </flux:button>
+            @endif
         </div>
     @endif
 </section>

@@ -39,6 +39,9 @@
             @case('areas')
                 @livewire('admin.areas')
                 @break
+            @case('calendar')
+                @livewire('admin.calendar')
+                @break
             @default
                 @livewire('admin.cycles')
         @endswitch

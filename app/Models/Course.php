@@ -46,6 +46,11 @@ class Course extends Model
         return $this->hasMany(Grade::class);
     }
 
+    public function attendances(): HasMany
+    {
+        return $this->hasMany(Attendance::class);
+    }
+
     /**
      * Los estudiantes que le corresponden a este curso: los matriculados en su
      * ciclo y, cuando el curso está atado a un grupo, solo los de ese grupo.

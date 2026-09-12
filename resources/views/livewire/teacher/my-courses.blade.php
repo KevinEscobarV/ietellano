@@ -102,17 +102,22 @@
                     };
                 @endphp
 
-                <a
-                    href="{{ route('teacher.gradebook', $card['id']) }}"
-                    wire:navigate
+                <div
                     wire:key="course-{{ $card['id'] }}"
-                    class="group flex flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-5 transition hover:border-zinc-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600"
+                    class="group relative flex flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-5 transition hover:border-zinc-300 hover:shadow-md focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-emerald-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600"
                 >
                     <div class="flex items-start justify-between gap-3">
                         <div class="flex flex-wrap items-center gap-1.5">
                             <flux:badge size="sm" color="zinc">{{ __('Periodo :n', ['n' => $card['period']]) }}</flux:badge>
                             @if ($card['group'] !== '')
                                 <flux:badge size="sm" color="zinc" variant="outline">{{ $card['group'] }}</flux:badge>
+                            @endif
+                            @if (! $card['open'])
+                                <flux:badge size="sm" color="zinc" icon="lock-closed">{{ __('Cerrado') }}</flux:badge>
+                            @elseif ($card['open_until'] !== null)
+                                <flux:badge size="sm" color="amber" icon="clock">
+                                    {{ __('hasta el :date', ['date' => $card['open_until']->translatedFormat('j \d\e F')]) }}
+                                </flux:badge>
                             @endif
                         </div>
 
@@ -123,7 +128,13 @@
                     </div>
 
                     <div>
-                        <h2 class="text-lg font-semibold leading-snug text-zinc-900 dark:text-zinc-100">{{ $card['subject'] }}</h2>
+                        {{-- El enlace del título cubre la tarjeta entera; el de
+                             asistencia se monta encima con su propio z-index. --}}
+                        <h2 class="text-lg leading-snug font-semibold text-zinc-900 dark:text-zinc-100">
+                            <a href="{{ route('teacher.gradebook', $card['id']) }}" wire:navigate class="after:absolute after:inset-0 focus:outline-none">
+                                {{ $card['subject'] }}
+                            </a>
+                        </h2>
                         <p class="mt-0.5 text-sm text-zinc-500">{{ $card['cycle'] }}</p>
                     </div>
 
@@ -142,11 +153,33 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-1 text-sm font-medium text-emerald-600 dark:text-emerald-400">
-                        {{ $card['pending'] > 0 ? __('Poner notas') : __('Revisar notas') }}
-                        <flux:icon name="arrow-right" class="size-4 transition-transform group-hover:translate-x-0.5" />
+                    <div class="relative z-10 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 pt-3 dark:border-zinc-800">
+                        <span class="flex items-center gap-1 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                            @if (! $card['open'])
+                                {{ __('Ver notas') }}
+                            @else
+                                {{ $card['pending'] > 0 ? __('Poner notas') : __('Revisar notas') }}
+                            @endif
+                            <flux:icon name="arrow-right" class="size-4 transition-transform group-hover:translate-x-0.5" />
+                        </span>
+
+                        <a
+                            href="{{ route('teacher.attendance', $card['id']) }}"
+                            wire:navigate
+                            @class([
+                                'rounded-md px-2 py-1 text-sm font-medium transition',
+                                'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300' => $card['open'] && ($card['attendance']['pending'] ?? 0) > 0,
+                                'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800' => ! $card['open'] || ($card['attendance']['pending'] ?? 0) === 0,
+                            ])
+                        >
+                            @if (($card['attendance']['total'] ?? 0) === 0)
+                                {{ __('Asistencia') }}
+                            @else
+                                {{ __('Asistencia :held/:total', ['held' => $card['attendance']['held'], 'total' => $card['attendance']['total']]) }}
+                            @endif
+                        </a>
                     </div>
-                </a>
+                </div>
             @endforeach
         </div>
     @endif

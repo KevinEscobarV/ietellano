@@ -107,6 +107,7 @@
                             <th style="width: 52px;">{{ $boletin['both'] ? 'Sem 1' : 'P1' }}</th>
                             <th style="width: 52px;">{{ $boletin['both'] ? 'Sem 2' : 'P2' }}</th>
                             <th style="width: 56px;">Final</th>
+                            <th style="width: 46px;">Fallas</th>
                             <th style="width: 110px;">Desempeño</th>
                         </tr>
                     </thead>
@@ -128,6 +129,9 @@
                                 <td class="c">{{ $num($col1) }}</td>
                                 <td class="c">{{ $num($col2) }}</td>
                                 <td class="c final {{ $fail ? 'fail' : '' }}">{{ $num($line['final']) }}</td>
+                                <td class="c {{ ($line['lost_by_absence'] ?? false) ? 'fail' : '' }}">
+                                    {{ ($line['held'] ?? 0) > 0 ? ($line['absences'] ?? 0) : '—' }}
+                                </td>
                                 <td class="c">
                                     @if ($line['performance'])
                                         @php $b = $badge($line['performance']); @endphp
@@ -143,6 +147,7 @@
                             <td></td>
                             <td></td>
                             <td class="c">{{ $num($boletin['overall']) }}</td>
+                            <td></td>
                             <td class="c">
                                 @if ($boletin['overall_performance'])
                                     @php $b = $badge($boletin['overall_performance']); @endphp

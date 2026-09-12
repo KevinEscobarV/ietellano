@@ -7,6 +7,8 @@ use App\Models\Cycle;
 use App\Models\Enrollment;
 use App\Models\Grade;
 use App\Models\Teacher;
+use App\Services\AttendanceService;
+use App\Services\TermService;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Livewire\Attributes\Title;
@@ -36,7 +38,7 @@ class MyCourses extends Component
         }
     }
 
-    public function render(): View
+    public function render(AttendanceService $attendance, TermService $term): View
     {
         $teacher = $this->teacher();
 
@@ -56,9 +58,17 @@ class MyCourses extends Component
 
         $roster = $this->rosterSizes($visible);
         $progress = $this->gradeProgress($visible);
+        $sessions = $attendance->progressFor($visible);
 
         $cards = $visible
-            ->map(fn (Course $course) => $this->card($course, $roster, $progress))
+            ->map(fn (Course $course) => [
+                ...$this->card($course, $roster, $progress),
+                'attendance' => $sessions[$course->id] ?? null,
+                // El semestre cerrado se sigue viendo; lo que cambia es que ya
+                // no se puede escribir, y eso hay que decirlo en la tarjeta.
+                'open' => $term->isOpen($course),
+                'open_until' => $term->openUntil($course),
+            ])
             ->sortBy([
                 fn (array $a, array $b) => $b['cycle_rank'] <=> $a['cycle_rank'],
                 fn (array $a, array $b) => $a['subject'] <=> $b['subject'],
@@ -232,7 +242,9 @@ class MyCourses extends Component
         return [
             'courses' => $cards->count(),
             'students' => $students,
-            'pending' => $cards->sum('pending'),
+            // Lo que falta por hacer es lo que todavía se puede hacer: en un
+            // semestre cerrado no hay nada pendiente, hay algo terminado.
+            'pending' => $cards->where('open', true)->sum('pending'),
             // Promedio ponderado por notas puestas: una materia con 30 notas
             // pesa más que una con 3.
             'average' => $graded > 0

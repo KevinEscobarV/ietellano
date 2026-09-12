@@ -11,7 +11,7 @@
     <div class="mb-6 grid gap-4 sm:grid-cols-2">
         <flux:select wire:model.live="cycleId" :label="__('Ciclo')" :placeholder="__('Selecciona un ciclo')">
             @foreach ($cycles as $cycle)
-                <flux:select.option :value="$cycle->id">{{ $cycle->label }}</flux:select.option>
+                <flux:select.option :value="$cycle->id">{{ $cycle->label }}@if ($cycle->isClosed()) · {{ __('cerrado') }}@endif</flux:select.option>
             @endforeach
         </flux:select>
 
@@ -30,6 +30,11 @@
             <span><span class="text-zinc-500">{{ __('Materia') }}:</span> <span class="font-medium">{{ $course->subject->name }}</span></span>
             <span><span class="text-zinc-500">{{ __('Periodo') }}:</span> <span class="font-medium">{{ $course->period }}</span></span>
             <span><span class="text-zinc-500">{{ __('Docente') }}:</span> <span class="font-medium">{{ $course->teacher->name ?? '—' }}</span></span>
+            {{-- El cierre no le cierra la puerta al administrador, pero conviene
+                 que sepa que está tocando un semestre ya entregado. --}}
+            @if ($course->cycle?->isClosed())
+                <flux:badge size="sm" color="rose" icon="lock-closed">{{ __('Semestre cerrado') }}</flux:badge>
+            @endif
         </div>
 
         <form wire:submit="save">

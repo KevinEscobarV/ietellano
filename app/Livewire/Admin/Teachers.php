@@ -87,11 +87,22 @@ class Teachers extends Component
 
     public function save(): void
     {
+        $userId = $this->linkedUserId();
+
+        $email = ['nullable', 'email', 'max:255'];
+
+        // Solo si ya tiene cuenta: ese correo es con el que entra y no puede ser
+        // el de otra persona. Sin cuenta no aplica — puede traer el correo de
+        // alguien de administración que además dicta clase, y ahí se vinculan.
+        if ($userId !== null) {
+            $email[] = Rule::unique('users', 'email')->ignore($userId);
+        }
+
         $validated = $this->validate([
             'username' => ['required', 'string', 'max:255', Rule::unique('teachers', 'username')->ignore($this->editingId)],
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['nullable', 'email', 'max:255'],
+            'email' => $email,
             'phone' => ['nullable', 'string', 'max:255'],
             'assignedCourseIds' => ['array'],
             'assignedCourseIds.*' => ['exists:courses,id'],
@@ -113,11 +124,46 @@ class Teachers extends Component
         }
 
         $this->syncCourses($teacher);
+        $this->syncUser($teacher);
 
         $this->showModal = false;
         $this->resetForm();
 
         Flux::toast(variant: 'success', text: __('Docente guardado.'));
+    }
+
+    /**
+     * La cuenta del docente, si ya la tiene. El correo con el que entra es el
+     * mismo de su ficha, así que al validarlo hay que dejarlo pasar.
+     */
+    private function linkedUserId(): ?int
+    {
+        return $this->editingId === null
+            ? null
+            : Teacher::where('id', $this->editingId)->value('user_id');
+    }
+
+    /**
+     * El docente no edita su propio nombre ni su correo: salen de aquí. Si ya
+     * tiene cuenta, corregir la ficha corrige también con qué entra al sistema.
+     */
+    private function syncUser(Teacher $teacher): void
+    {
+        $user = $teacher->user;
+
+        if ($user === null) {
+            return;
+        }
+
+        $user->name = $teacher->name;
+
+        // Un docente sin correo en la ficha conserva el de su cuenta: dejarlo
+        // en blanco lo sacaría del sistema.
+        if ($teacher->email !== null) {
+            $user->email = $teacher->email;
+        }
+
+        $user->save();
     }
 
     private function syncCourses(Teacher $teacher): void

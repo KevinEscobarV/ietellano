@@ -94,6 +94,7 @@
                         <th class="py-2 text-center font-semibold">{{ $boletin['both'] ? __('Sem 1') : __('P1') }}</th>
                         <th class="py-2 text-center font-semibold">{{ $boletin['both'] ? __('Sem 2') : __('P2') }}</th>
                         <th class="py-2 text-center font-semibold">{{ __('Final') }}</th>
+                        <th class="py-2 text-center font-semibold">{{ __('Fallas') }}</th>
                         <th class="py-2 text-center font-semibold">{{ __('Desempeño') }}</th>
                     </tr>
                 </thead>
@@ -119,6 +120,9 @@
                             <td @class(['py-2 text-center font-semibold tabular-nums', 'text-red-600 dark:text-red-400' => $failing])>
                                 {{ $line['final'] !== null ? number_format($line['final'], 2) : '—' }}
                             </td>
+                            <td @class(['py-2 text-center tabular-nums', 'font-semibold text-red-600 dark:text-red-400' => $line['lost_by_absence'] ?? false])>
+                                {{ ($line['held'] ?? 0) > 0 ? ($line['absences'] ?? 0) : '—' }}
+                            </td>
                             <td class="py-2 text-center">
                                 @if ($line['performance'])
                                     <span @class([
@@ -140,6 +144,7 @@
                         <td></td>
                         <td></td>
                         <td class="py-3 text-center tabular-nums">{{ $boletin['overall'] !== null ? number_format($boletin['overall'], 2) : '—' }}</td>
+                        <td></td>
                         <td class="py-3 text-center text-xs">{{ $boletin['overall_performance'] ?? '—' }}</td>
                     </tr>
                 </tfoot>

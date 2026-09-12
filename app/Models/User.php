@@ -58,6 +58,18 @@ class User extends Authenticatable
     }
 
     /**
+     * Si esta persona es dueña de los datos de su cuenta.
+     *
+     * El nombre y el correo de un docente los lleva la coordinación desde la
+     * ficha de Docentes: son los mismos que aparecen en boletines y planillas,
+     * así que no se cambian por cuenta propia. La contraseña sí es suya.
+     */
+    public function managesOwnProfile(): bool
+    {
+        return ! $this->isTeacherOnly();
+    }
+
+    /**
      * Get the user's initials
      */
     public function initials(): string

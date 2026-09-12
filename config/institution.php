@@ -12,4 +12,10 @@ return [
     'recognition' => 'Resolución N°2689 del 7 de diciembre de 2022 emanada de la Secretaría de Educación de Casanare',
     'rector' => 'Nelly Socorro Acevedo Gil',
     'secretary' => 'Myriam Jackeline Moreno Rivera',
+
+    /*
+    | Porcentaje de inasistencias sin justificar a partir del cual se pierde
+    | la materia. 0.20 son dos fallas de cada diez clases dictadas.
+    */
+    'max_absence_rate' => 0.20,
 ];

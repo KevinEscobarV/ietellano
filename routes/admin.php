@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\BoletinDownloadController;
 use App\Http\Controllers\Admin\CertificateDownloadController;
+use App\Livewire\Admin\Attendance;
 use App\Livewire\Admin\Boletines;
 use App\Livewire\Admin\Certificates;
 use App\Livewire\Admin\GradeEditor;
@@ -10,6 +11,7 @@ use App\Livewire\Admin\Roles;
 use App\Livewire\Admin\Structure;
 use App\Livewire\Admin\Students;
 use App\Livewire\Admin\Teachers;
+use App\Livewire\Admin\TermClosure;
 use App\Livewire\Admin\Users;
 use Illuminate\Support\Facades\Route;
 
@@ -27,4 +29,6 @@ Route::middleware(['auth', 'verified', 'role:super-admin|admin'])->prefix('admin
     Route::get('certificates/download/{cycle}/{student}', [CertificateDownloadController::class, 'student'])->name('certificates.download-student');
     Route::livewire('grades', Grades::class)->name('grades');
     Route::livewire('grade-editor', GradeEditor::class)->name('grade-editor');
+    Route::livewire('attendance', Attendance::class)->name('attendance');
+    Route::livewire('closure', TermClosure::class)->name('closure');
 });

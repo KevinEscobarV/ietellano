@@ -16,7 +16,12 @@
         <flux:table.rows>
             @forelse ($cycles as $cycle)
                 <flux:table.row :key="$cycle->id">
-                    <flux:table.cell class="font-medium">{{ $cycle->name }}</flux:table.cell>
+                    <flux:table.cell class="font-medium">
+                        {{ $cycle->name }}
+                        @if ($cycle->isClosed())
+                            <flux:badge size="sm" color="rose" inset="top bottom">{{ __('Cerrado') }}</flux:badge>
+                        @endif
+                    </flux:table.cell>
                     <flux:table.cell><flux:badge size="sm" color="zinc" inset="top bottom">{{ $cycle->code }}</flux:badge></flux:table.cell>
                     <flux:table.cell align="center">{{ $cycle->semester }}</flux:table.cell>
                     <flux:table.cell align="center">{{ $cycle->year }}</flux:table.cell>

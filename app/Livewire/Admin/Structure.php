@@ -19,6 +19,7 @@ class Structure extends Component
         'subjects' => 'Materias',
         'courses' => 'Cursos',
         'areas' => 'Áreas',
+        'calendar' => 'Calendario',
     ];
 
     #[Url]

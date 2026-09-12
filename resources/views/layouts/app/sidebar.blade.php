@@ -34,6 +34,9 @@
                     <flux:sidebar.item icon="user-group" :href="route('admin.teachers')" :current="request()->routeIs('admin.teachers')" wire:navigate>
                         {{ __('Docentes') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item icon="clipboard-document-check" :href="route('admin.attendance')" :current="request()->routeIs('admin.attendance')" wire:navigate>
+                        {{ __('Asistencia') }}
+                    </flux:sidebar.item>
                     <flux:sidebar.item icon="squares-2x2" :href="route('admin.structure')" :current="request()->routeIs('admin.structure')" wire:navigate>
                         {{ __('Estructura académica') }}
                     </flux:sidebar.item>
@@ -45,6 +48,9 @@
                     </flux:sidebar.item>
                     <flux:sidebar.item icon="pencil-square" :href="route('admin.grade-editor')" :current="request()->routeIs('admin.grade-editor')" wire:navigate>
                         {{ __('Editar notas') }}
+                    </flux:sidebar.item>
+                    <flux:sidebar.item icon="lock-closed" :href="route('admin.closure')" :current="request()->routeIs('admin.closure')" wire:navigate>
+                        {{ __('Cierre de semestre') }}
                     </flux:sidebar.item>
                 </flux:sidebar.group>
 
