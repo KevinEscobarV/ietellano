@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
@@ -31,6 +32,29 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * El registro de docente vinculado a esta cuenta. Es lo que abre el portal
+     * de docentes y decide qué materias ve la persona.
+     */
+    public function teacher(): HasOne
+    {
+        return $this->hasOne(Teacher::class);
+    }
+
+    public function isTeacher(): bool
+    {
+        return $this->teacher()->exists();
+    }
+
+    /**
+     * Docente sin cargo administrativo. Para esta persona el sistema es el
+     * portal de docencia y nada más, así que no le mostramos el tablero.
+     */
+    public function isTeacherOnly(): bool
+    {
+        return $this->isTeacher() && ! $this->hasAnyRole(['super-admin', 'admin']);
     }
 
     /**

@@ -34,6 +34,9 @@ class RolesAndPermissionsSeeder extends Seeder
 
             // Dashboard
             'dashboard.view',
+
+            // Portal de docentes: calificar únicamente los cursos propios.
+            'grades.own.edit',
         ];
 
         foreach ($permissions as $permission) {
@@ -45,6 +48,7 @@ class RolesAndPermissionsSeeder extends Seeder
         $admin = Role::firstOrCreate(['name' => 'admin']);
         $editor = Role::firstOrCreate(['name' => 'editor']);
         $viewer = Role::firstOrCreate(['name' => 'viewer']);
+        $teacher = Role::firstOrCreate(['name' => 'docente']);
 
         // super-admin gets all permissions via gate bypass (see AppServiceProvider)
         // admin gets all permissions except deleting roles
@@ -58,6 +62,10 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // viewer can only view the dashboard
         $viewer->syncPermissions(['dashboard.view']);
+
+        // El docente solo entra a su portal: sus materias y las notas de ellas.
+        // Qué materias son suyas lo decide CoursePolicy, no este permiso.
+        $teacher->syncPermissions(['grades.own.edit']);
 
         // --- Superadmin user ---
         $superAdminUser = User::firstOrCreate(

@@ -5,7 +5,10 @@ namespace App\Livewire\Admin;
 use App\Models\Course;
 use App\Models\Cycle;
 use App\Models\Teacher;
+use App\Models\User;
 use Flux\Flux;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Livewire\Attributes\Title;
@@ -41,6 +44,19 @@ class Teachers extends Component
     public array $assignedCourseIds = [];
 
     public string $filterCycleId = '';
+
+    /**
+     * Credencial recién generada. Solo vive en esta pantalla y en este momento:
+     * no se guarda en claro en ninguna parte, así que hay que entregársela al
+     * docente antes de cerrar el aviso.
+     */
+    public bool $showAccessModal = false;
+
+    public string $accessName = '';
+
+    public string $accessEmail = '';
+
+    public string $accessPassword = '';
 
     public function updatedSearch(): void
     {
@@ -115,6 +131,97 @@ class Teachers extends Component
         }
     }
 
+    /**
+     * Le abre el sistema a un docente. No hay correo saliente configurado, así
+     * que la contraseña se genera aquí y se muestra una sola vez para que la
+     * coordinación se la entregue en persona.
+     */
+    public function createAccess(int $teacherId): void
+    {
+        $teacher = Teacher::findOrFail($teacherId);
+
+        if ($teacher->user_id !== null) {
+            Flux::toast(variant: 'warning', text: __('Este docente ya tiene acceso.'));
+
+            return;
+        }
+
+        $email = trim((string) $teacher->email);
+
+        if ($email === '') {
+            Flux::toast(variant: 'danger', text: __('Primero agrégale un email al docente.'));
+
+            return;
+        }
+
+        $existing = User::where('email', $email)->first();
+
+        if ($existing !== null && Teacher::where('user_id', $existing->id)->exists()) {
+            Flux::toast(variant: 'danger', text: __('Ya hay otro docente usando esa cuenta.'));
+
+            return;
+        }
+
+        if ($existing !== null) {
+            // La cuenta ya existía (por ejemplo, alguien de administración que
+            // además dicta clase). Se vincula sin tocarle la contraseña.
+            $user = $existing;
+            $password = '';
+        } else {
+            $password = Str::password(12, symbols: false);
+
+            $user = User::create([
+                'name' => $teacher->name,
+                'email' => $email,
+                'password' => Hash::make($password),
+            ]);
+
+            // La cuenta la crea un administrador que ya conoce la dirección, así
+            // que no hay nada que verificar por correo.
+            $user->forceFill(['email_verified_at' => now()])->save();
+        }
+
+        $user->assignRole('docente');
+        $teacher->user()->associate($user)->save();
+
+        $this->announceAccess($teacher, $password);
+    }
+
+    public function resetAccessPassword(int $teacherId): void
+    {
+        $teacher = Teacher::with('user')->findOrFail($teacherId);
+
+        if ($teacher->user === null) {
+            Flux::toast(variant: 'danger', text: __('Este docente todavía no tiene acceso.'));
+
+            return;
+        }
+
+        $password = Str::password(12, symbols: false);
+
+        $teacher->user->forceFill(['password' => Hash::make($password)])->save();
+
+        $this->announceAccess($teacher, $password);
+    }
+
+    public function revokeAccess(int $teacherId): void
+    {
+        $teacher = Teacher::with('user')->findOrFail($teacherId);
+
+        $teacher->user?->removeRole('docente');
+        $teacher->user()->dissociate()->save();
+
+        Flux::toast(variant: 'success', text: __('Acceso retirado. La cuenta sigue existiendo en Usuarios.'));
+    }
+
+    private function announceAccess(Teacher $teacher, string $password): void
+    {
+        $this->accessName = $teacher->name;
+        $this->accessEmail = (string) $teacher->email;
+        $this->accessPassword = $password;
+        $this->showAccessModal = true;
+    }
+
     public function openDelete(int $teacherId): void
     {
         $this->deletingId = $teacherId;
@@ -139,6 +246,7 @@ class Teachers extends Component
     public function render(): View
     {
         $teachers = Teacher::query()
+            ->with('user')
             ->withCount('courses')
             ->when($this->search, fn ($query) => $query->where(function ($q) {
                 $q->where('first_name', 'like', "%{$this->search}%")

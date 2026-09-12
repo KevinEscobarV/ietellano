@@ -11,12 +11,21 @@
             </flux:sidebar.header>
 
             <flux:sidebar.nav>
+                @unless (auth()->user()->isTeacherOnly())
                 <flux:sidebar.group :heading="__('Platform')" class="grid">
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                         {{ __('Dashboard') }}
                     </flux:sidebar.item>
                 </flux:sidebar.group>
+                @endunless
 
+                @if (auth()->user()->isTeacher())
+                <flux:sidebar.group :heading="__('Docencia')" class="grid">
+                    <flux:sidebar.item icon="book-open" :href="route('teacher.courses')" :current="request()->routeIs('teacher.*')" wire:navigate>
+                        {{ __('Mis materias') }}
+                    </flux:sidebar.item>
+                </flux:sidebar.group>
+                @endif
                 @hasanyrole('super-admin|admin')
                 <flux:sidebar.group :heading="__('Administration')" class="grid">
                     <flux:sidebar.item icon="users" :href="route('admin.users')" :current="request()->routeIs('admin.users')" wire:navigate>
@@ -52,15 +61,6 @@
 
             <flux:spacer />
 
-            <flux:sidebar.nav>
-                <flux:sidebar.item icon="folder-git-2" href="https://github.com/laravel/livewire-starter-kit" target="_blank">
-                    {{ __('Repository') }}
-                </flux:sidebar.item>
-
-                <flux:sidebar.item icon="book-open-text" href="https://laravel.com/docs/starter-kits#livewire" target="_blank">
-                    {{ __('Documentation') }}
-                </flux:sidebar.item>
-            </flux:sidebar.nav>
 
             <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
         </flux:sidebar>
