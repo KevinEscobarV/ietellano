@@ -37,7 +37,7 @@
             Sistema académico: registro de notas, boletines de calificaciones y certificados de estudio.
         </p>
 
-        <div class="animate-llano-rise w-full [animation-delay:.76s]">
+        <div class="animate-llano-rise flex w-full flex-col gap-3 [animation-delay:.76s]">
             <a
                 href="{{ auth()->check() ? route('dashboard') : route('login') }}"
                 class="llano-button flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-3.5 text-[15px] font-semibold tracking-tight text-[#04120B] focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-llano-emerald"
@@ -47,11 +47,24 @@
                     <path d="M5 12h13M13 6l6 6-6 6" />
                 </svg>
             </a>
+
+            {{-- La puerta del estudiante: sin cuenta, solo su documento. --}}
+            <a
+                href="{{ route('consulta.lookup') }}"
+                class="flex w-full items-center justify-center gap-2.5 rounded-xl border border-white/15 bg-white/[.06] px-6 py-3.5 text-[15px] font-semibold tracking-tight text-llano-mist transition hover:border-white/30 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-llano-emerald"
+            >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M15 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6z" />
+                    <path d="M14 2v5h5M9 13h6M9 17h4" />
+                </svg>
+                Consultar mi boletín
+            </a>
         </div>
 
         <p class="animate-llano-rise text-xs leading-normal text-pretty text-llano-haze/85 [animation-delay:.84s]">
-            El acceso está reservado a docentes y personal administrativo. Si eres estudiante o acudiente,
-            solicita tu boletín o certificado en la institución.
+            Si eres estudiante, consulta tu boletín con tu documento de identidad: no necesitas usuario ni contraseña.
+            El ingreso con cuenta está reservado a docentes y personal administrativo, y los certificados de estudio
+            se solicitan en la institución.
         </p>
     </main>
 

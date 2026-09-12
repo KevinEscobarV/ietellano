@@ -75,6 +75,16 @@ La contraseña se genera en pantalla en lugar de enviarse por correo porque el h
 
 Qué materias ve cada docente lo decide el vínculo `teachers.user_id`, no el rol. La regla se aplica en tres capas: el middleware `teacher` exige que la cuenta esté vinculada, `CoursePolicy` verifica que el curso sea suyo antes de abrir la planilla, y al guardar se comprueba que el estudiante esté matriculado en ese curso.
 
+### Consulta pública del estudiante
+
+El estudiante no tiene cuenta. En **`/consulta`** escribe su documento y su apellido y ve su propio boletín: los semestres en los que está matriculado, las notas de los dos periodos, las fallas y el PDF para descargar. Los certificados no están ahí; se siguen tramitando en la institución.
+
+El apellido no es un adorno. Un número de cédula circula con facilidad, así que es lo único que impide abrir el boletín ajeno. Se compara sin tildes ni mayúsculas y sirve cualquiera de los dos apellidos (`App\Services\StudentLookup`); ocho intentos fallidos desde la misma IP cierran la consulta cinco minutos.
+
+De la consulta solo queda en sesión el `id` del estudiante verificado (`consulta.student_id`), y de ahí sale todo lo que se muestra. La URL del PDF dice qué semestre se quiere, nunca de quién: cambiarle el número no abre el de otra persona.
+
+Los semestres abiertos se consultan igual que los cerrados, con un aviso de que las notas todavía pueden cambiar. Quien no tenga su documento actualizado en `students.document` no puede entrar —hoy son once: ocho con documento provisional (`sd00…`) y tres sin ninguno— y se corrigen desde **Estudiantes**.
+
 ---
 
 ## Modelo de datos
@@ -294,11 +304,12 @@ app/
 │   ├── Admin/            Panel: usuarios, roles, estudiantes, docentes,
 │   │                     estructura, notas, boletines, certificados
 │   ├── Teacher/          Portal docente: MyCourses, Gradebook y Attendance
+│   ├── Consulta/         Consulta pública: Lookup (documento) y Boletin
 │   └── Settings/         Perfil, seguridad, apariencia
 ├── Policies/             CoursePolicy: quién puede calificar qué, y hasta cuándo
 ├── Enums/                AttendanceStatus: presente, falló, justificada
 ├── Services/             AttendanceService, BoletinService, CertificateService,
-│                         GradeImporter, TermService
+│                         GradeImporter, StudentLookup, TermService
 │                         y sus exportadores a PDF
 └── Support/              XlsxReader, ResizesInstitutionLogo
 
@@ -308,5 +319,6 @@ routes/
 ├── web.php               Portada y tablero
 ├── admin.php             /admin/*  (rol super-admin o admin)
 ├── teacher.php           /docente/* (cuenta vinculada a un docente)
+├── consulta.php          /consulta/* (público: documento y apellido)
 └── settings.php          Ajustes de la cuenta
 ```

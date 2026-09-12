@@ -12,4 +12,11 @@
 @fonts
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
-@fluxAppearance
+
+{{-- El script de apariencia sigue la preferencia del dispositivo y le pone (o
+     le quita) la clase `dark` a la página. Las pantallas que pintan un solo
+     mundo de colores —la consulta pública, que además se imprime— lo omiten
+     con :appearance="false". --}}
+@if ($appearance ?? true)
+    @fluxAppearance
+@endif

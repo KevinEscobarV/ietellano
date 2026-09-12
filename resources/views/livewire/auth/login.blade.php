@@ -51,5 +51,11 @@
                 <flux:link :href="route('register')" wire:navigate>{{ __('Sign up') }}</flux:link>
             </div>
         @endif
+
+        {{-- El estudiante no tiene cuenta aquí: su boletín se consulta con el documento. --}}
+        <div class="space-x-1 text-center text-sm text-llano-haze">
+            <span>{{ __('¿Eres estudiante?') }}</span>
+            <flux:link :href="route('consulta.lookup')" wire:navigate>{{ __('Consulta tu boletín') }}</flux:link>
+        </div>
     </div>
 </x-layouts::auth>
