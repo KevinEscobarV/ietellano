@@ -196,7 +196,7 @@
                     <div class="flex flex-wrap gap-1">
                         @foreach ($assignedCourses as $course)
                             <flux:badge size="sm" color="emerald" inset="top bottom">
-                                {{ $course->cycle->name }} · {{ $course->subject->name }} (P{{ $course->period }})
+                                {{ $course->cycle->label }} · {{ $course->subject->name }} (P{{ $course->period }})
                             </flux:badge>
                         @endforeach
                     </div>
@@ -207,7 +207,7 @@
             <div>
                 <flux:select wire:model.live="filterCycleId" :label="__('Asignar cursos por ciclo')" :placeholder="__('Selecciona un ciclo')" size="sm">
                     @foreach ($cycles as $cycle)
-                        <flux:select.option :value="$cycle->id">{{ $cycle->name }}</flux:select.option>
+                        <flux:select.option :value="$cycle->id">{{ $cycle->label }}</flux:select.option>
                     @endforeach
                 </flux:select>
 

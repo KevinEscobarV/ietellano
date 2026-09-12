@@ -89,7 +89,7 @@ class Groups extends Component
 
         return view('livewire.admin.groups', [
             'groups' => $groups,
-            'cycles' => Cycle::orderBy('level')->get(),
+            'cycles' => Cycle::ordered()->get(),
         ]);
     }
 }

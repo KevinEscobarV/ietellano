@@ -190,7 +190,7 @@ class Students extends Component
 
         return view('livewire.admin.students', [
             'students' => $students,
-            'cycles' => Cycle::with('groups')->orderBy('level')->get(),
+            'cycles' => Cycle::with('groups')->ordered()->get(),
         ]);
     }
 }

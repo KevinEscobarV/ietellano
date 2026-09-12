@@ -41,7 +41,7 @@
     <div class="mb-6 grid gap-4 sm:grid-cols-2 print:hidden">
         <flux:select wire:model.live="cycleId" :label="__('Ciclo')" :placeholder="__('Selecciona un ciclo')">
             @foreach ($cycles as $cycle)
-                <flux:select.option :value="$cycle->id">{{ $cycle->name }} · {{ $cycle->code }}</flux:select.option>
+                <flux:select.option :value="$cycle->id">{{ $cycle->label }}</flux:select.option>
             @endforeach
         </flux:select>
 

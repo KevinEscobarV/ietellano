@@ -122,6 +122,32 @@ describe('mis materias', function () {
                 && $summary['students'] === 1
                 && $summary['pending'] === 1);
     });
+
+    test('abre en el semestre en curso y no mezcla el anterior', function () {
+        $anterior = Cycle::create([
+            'code' => 'C1-2025-2',
+            'level' => 'Ciclo 1',
+            'semester' => 2,
+            'year' => 2025,
+            'name' => 'Ciclo 1',
+        ]);
+
+        Course::create([
+            'code' => 'MAT-VIEJO',
+            'cycle_id' => $anterior->id,
+            'subject_id' => Subject::create(['code' => 'FIS', 'name' => 'Fisica'])->id,
+            'teacher_id' => $this->teacher->id,
+            'period' => 1,
+        ]);
+
+        Livewire::actingAs($this->user)
+            ->test(MyCourses::class)
+            ->assertSet('cycleId', (string) $this->cycle->id)
+            ->assertSee('Matematicas')
+            ->assertDontSee('Fisica')
+            ->set('cycleId', '')
+            ->assertSee('Fisica');
+    });
 });
 
 describe('planilla de notas', function () {

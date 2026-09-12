@@ -41,13 +41,48 @@ class AcademicStructureSeeder extends Seeder
     private const SUBJECT_MATCH_ORDER = ['FIL', 'FIS', 'ING', 'LEN', 'MAT', 'QUI', 'TEC', 'CN', 'CS', 'EA', 'EF', 'ER', 'PV'];
 
     /**
+     * Carpetas de `database/data` con los csv de matrícula, en orden cronológico.
+     * Un semestre nuevo es una línea más.
+     *
      * @var list<string>
      */
     private const DATA_DIRS = [
-        'Estudiantes csv M1',
-        'Estudiantes csv M2',
-        'Estudiantes csv con documentos M2',
+        'Sistema de calificaciones Semipresencial/Estudiantes csv M1',
+        'Sistema de calificaciones Semipresencial/Estudiantes csv M2',
+        'Sistema de calificaciones Semipresencial/Estudiantes csv con documentos M2',
+        '2026-2',
     ];
+
+    /**
+     * Desde 2026-2 la cohorte de Moodle trae el grupo pegado al nivel
+     * (Ciclo4BG1S22026, Ciclo51S22026). Académicamente siguen siendo un solo
+     * ciclo con dos grupos, que es como se modeló el Ciclo 5 en 2026-1.
+     *
+     * @var array<string, string>
+     */
+    private const COHORT_ALIASES = [
+        'Ciclo4BG1S22026' => 'Ciclo4BS22026',
+        'Ciclo4BG2S22026' => 'Ciclo4BS22026',
+        'Ciclo51S22026' => 'Ciclo5S22026',
+        'Ciclo52S22026' => 'Ciclo5S22026',
+    ];
+
+    /**
+     * Ciclos que ocupan dos semestres: el boletín del ciclo completo junta el
+     * semestre anterior con el actual.
+     *
+     * @var array<string, string>
+     */
+    private const PREVIOUS_CYCLES = [
+        'Ciclo3BS22026' => 'Ciclo3AS12026',
+        'Ciclo4BS22026' => 'Ciclo4AS12026',
+    ];
+
+    /**
+     * Raíz de los csv de matrícula. Los tests la apuntan a un directorio con
+     * archivos de prueba.
+     */
+    public ?string $basePath = null;
 
     /** @var array<string, Subject> */
     private array $subjects = [];
@@ -65,10 +100,8 @@ class AcademicStructureSeeder extends Seeder
     {
         $this->seedSubjects();
 
-        $base = database_path('data'.DIRECTORY_SEPARATOR.'Sistema de calificaciones Semipresencial');
-
         foreach (self::DATA_DIRS as $dir) {
-            $path = $base.DIRECTORY_SEPARATOR.$dir;
+            $path = ($this->basePath ?? database_path('data')).DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $dir);
 
             if (! File::isDirectory($path)) {
                 continue;
@@ -82,6 +115,7 @@ class AcademicStructureSeeder extends Seeder
         }
 
         $this->normalizeCourseGroups();
+        $this->linkPreviousCycles();
         $this->seedAreas();
     }
 
@@ -195,18 +229,20 @@ class AcademicStructureSeeder extends Seeder
 
     private function resolveCycle(string $cohort): ?Cycle
     {
-        if (isset($this->cycles[$cohort])) {
-            return $this->cycles[$cohort];
+        $code = self::COHORT_ALIASES[$cohort] ?? $cohort;
+
+        if (isset($this->cycles[$code])) {
+            return $this->cycles[$code];
         }
 
-        if (! preg_match('/^Ciclo(.+?)S(\d)(\d{4})$/', $cohort, $matches)) {
+        if (! preg_match('/^Ciclo(.+?)S(\d)(\d{4})$/', $code, $matches)) {
             return null;
         }
 
         [, $level, $semester, $year] = $matches;
 
-        return $this->cycles[$cohort] = Cycle::firstOrCreate(
-            ['code' => $cohort],
+        return $this->cycles[$code] = Cycle::firstOrCreate(
+            ['code' => $code],
             ['level' => $level, 'semester' => (int) $semester, 'year' => (int) $year, 'name' => "Ciclo {$level}"],
         );
     }
@@ -223,8 +259,16 @@ class AcademicStructureSeeder extends Seeder
      */
     private function resolveStudent(string $email, callable $value): Student
     {
-        $student = Student::firstOrNew(['email' => $email]);
+        $document = $value('idnumber');
 
+        // El correo cambia de un semestre a otro: en 2026-1 varios entraron con
+        // un placeholder nullN@iellano.com y este semestre ya traen el suyo. Es
+        // el documento el que identifica a la persona.
+        $student = Student::where('email', $email)->first()
+            ?? ($document !== null ? Student::where('document', $document)->first() : null)
+            ?? new Student;
+
+        $student->email = $email;
         $student->first_name = $value('firstname') ?? $student->first_name ?? '';
         $student->last_name = $value('lastname') ?? $student->last_name ?? '';
         $student->username = $value('username') ?? $student->username;
@@ -232,8 +276,6 @@ class AcademicStructureSeeder extends Seeder
         $student->city = $value('city') ?? $student->city;
         $student->country = $value('country') ?? $student->country;
         $student->lang = $value('lang') ?? $student->lang;
-
-        $document = $value('idnumber');
 
         if ($document !== null) {
             $student->document = $document;
@@ -250,11 +292,14 @@ class AcademicStructureSeeder extends Seeder
             return $this->courses[$code];
         }
 
-        if (! preg_match('/M(\d)$/', $code, $matches)) {
+        // Desde 2026-2 el código arrastra el semestre y el año: C5MATM1 -> C3BMATM1S22026.
+        $token = preg_replace('/S(\d)(\d{4})$/', '', $code);
+
+        if (! preg_match('/M(\d)$/', $token, $matches)) {
             return null;
         }
 
-        $subject = $this->matchSubject($code);
+        $subject = $this->matchSubject($token);
 
         if ($subject === null) {
             return null;
@@ -291,6 +336,18 @@ class AcademicStructureSeeder extends Seeder
                     $courses->first()->update(['group_id' => null]);
                 }
             });
+    }
+
+    private function linkPreviousCycles(): void
+    {
+        foreach (self::PREVIOUS_CYCLES as $code => $previousCode) {
+            $cycle = Cycle::where('code', $code)->first();
+            $previous = Cycle::where('code', $previousCode)->first();
+
+            if ($cycle !== null && $previous !== null) {
+                $cycle->update(['previous_cycle_id' => $previous->id]);
+            }
+        }
     }
 
     private function seedAreas(): void

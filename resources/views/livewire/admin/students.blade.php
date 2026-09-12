@@ -47,7 +47,7 @@
                             <div class="flex flex-wrap gap-1">
                                 @foreach ($student->enrollments as $enrollment)
                                     <flux:badge size="sm" variant="outline" color="zinc" inset="top bottom">
-                                        {{ $enrollment->cycle->name }}@if ($enrollment->group) · {{ $enrollment->group->name }}@endif
+                                        {{ $enrollment->cycle->label }}@if ($enrollment->group) · {{ $enrollment->group->name }}@endif
                                     </flux:badge>
                                 @endforeach
                             </div>
@@ -128,7 +128,7 @@
                             <flux:select wire:model.live="enrollments.{{ $index }}.cycle_id" :label="__('Ciclo')" size="sm" class="flex-1">
                                 <flux:select.option :value="null">{{ __('—') }}</flux:select.option>
                                 @foreach ($cycles as $cycle)
-                                    <flux:select.option :value="$cycle->id">{{ $cycle->name }}</flux:select.option>
+                                    <flux:select.option :value="$cycle->id">{{ $cycle->label }}</flux:select.option>
                                 @endforeach
                             </flux:select>
                             <flux:select wire:model="enrollments.{{ $index }}.group_id" :label="__('Grupo')" size="sm" class="flex-1" :disabled="! $selectedCycle">

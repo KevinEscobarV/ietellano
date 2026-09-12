@@ -263,7 +263,7 @@ class Teachers extends Component
 
         return view('livewire.admin.teachers', [
             'teachers' => $teachers,
-            'cycles' => Cycle::orderBy('level')->get(),
+            'cycles' => Cycle::ordered()->get(),
             'filterCourses' => $filterCourses,
             'assignedCourses' => Course::whereIn('id', $this->assignedCourseIds)->with('subject', 'cycle')->orderBy('code')->get(),
         ]);

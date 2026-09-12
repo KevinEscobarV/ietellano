@@ -87,7 +87,7 @@ class Cycles extends Component
     {
         $cycles = Cycle::query()
             ->withCount(['students', 'groups', 'courses'])
-            ->orderBy('level')
+            ->ordered()
             ->paginate(10);
 
         return view('livewire.admin.cycles', ['cycles' => $cycles]);

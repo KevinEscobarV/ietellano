@@ -18,7 +18,7 @@
             @forelse ($courses as $course)
                 <flux:table.row :key="$course->id">
                     <flux:table.cell><flux:badge size="sm" color="zinc" inset="top bottom">{{ $course->code }}</flux:badge></flux:table.cell>
-                    <flux:table.cell>{{ $course->cycle->name }}</flux:table.cell>
+                    <flux:table.cell>{{ $course->cycle->label }}</flux:table.cell>
                     <flux:table.cell class="font-medium">{{ $course->subject->name }}</flux:table.cell>
                     <flux:table.cell class="text-zinc-500">{{ $course->group->name ?? '—' }}</flux:table.cell>
                     <flux:table.cell class="text-zinc-500">{{ $course->teacher->name ?? '—' }}</flux:table.cell>
@@ -61,7 +61,7 @@
                 </flux:select>
                 <flux:select wire:model.live="cycle_id" :label="__('Ciclo')" :placeholder="__('Selecciona')">
                     @foreach ($cycles as $cycle)
-                        <flux:select.option :value="$cycle->id">{{ $cycle->name }}</flux:select.option>
+                        <flux:select.option :value="$cycle->id">{{ $cycle->label }}</flux:select.option>
                     @endforeach
                 </flux:select>
                 <flux:select wire:model="subject_id" :label="__('Materia')" :placeholder="__('Selecciona')">

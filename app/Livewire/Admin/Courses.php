@@ -120,7 +120,7 @@ class Courses extends Component
 
         return view('livewire.admin.courses', [
             'courses' => $courses,
-            'cycles' => Cycle::orderBy('level')->get(),
+            'cycles' => Cycle::ordered()->get(),
             'subjects' => Subject::orderBy('name')->get(),
             'teachers' => Teacher::orderBy('last_name')->get(),
             'cycleGroups' => $selectedCycle?->groups ?? collect(),

@@ -91,25 +91,37 @@ Cycle  ─┬─ Group ──── Enrollment ──── Student
                       (una nota por curso y estudiante)
 ```
 
-- Un **ciclo** es un semestre de un nivel (`Ciclo 3 · 2026-2`). Puede apuntar al ciclo anterior para armar boletines de dos semestres.
+- Un **ciclo** es un semestre de un nivel (`Ciclo 3B · 2026-2`). Puede apuntar al ciclo anterior para armar boletines de dos semestres.
 - Un **curso** es la combinación materia + grupo + periodo. Un curso sin grupo cubre a todo el ciclo.
 - Las **áreas** agrupan materias para que el boletín muestre una línea por área con sus componentes.
 - Escala de **0 a 5**, se aprueba con **3.0**. Desempeño según el Decreto 1290: Superior ≥ 4.6 · Alto ≥ 4.0 · Básico ≥ 3.0 · Bajo por debajo.
+
+### Cómo se separan los semestres
+
+**El ciclo es la unidad de semestre.** `Ciclo3AS12026` y `Ciclo3BS22026` son filas distintas, cada una con sus grupos, cursos, matrículas y notas; importar un semestre nuevo no toca lo anterior.
+
+Lo único que se comparte entre semestres es el **estudiante**: es la misma persona, y se reconoce primero por correo y, si no aparece, por documento. El documento es el que manda cuando el correo cambia — en 2026-1 varios entraron con un `nullN@iellano.com` de relleno y este semestre ya traen el suyo.
+
+Como el nivel se repite cada semestre, en pantalla los ciclos se muestran con su semestre (`Ciclo 5 · 2026-2`) y los selectores ordenan el semestre en curso primero.
+
+Un ciclo de dos semestres —el 3 y el 4— enlaza el semestre 1 con el 2 por `previous_cycle_id`, y el boletín sale con columnas *Semestre 1 / Semestre 2 / Final*. El semestre que queda como anterior desaparece de la lista de boletines: el boletín del ciclo completo se genera desde el semestre 2.
 
 ---
 
 ## Datos
 
-Los archivos fuente (`.xlsx` de estructura, docentes y calificaciones) viven en `database/data/` y **están fuera del repositorio** por privacidad: contienen nombres y documentos de estudiantes reales.
+Los archivos fuente (`.csv` de matrícula, `.xlsx` de docentes y calificaciones) viven en `database/data/` y **están fuera del repositorio** por privacidad: contienen nombres y documentos de estudiantes reales. Van organizados por semestre: `database/data/2026-2/` es el semestre 2 de 2026.
 
 ```bash
-# Estructura académica, docentes y asignación de cursos
+# Estructura académica: ciclos, grupos, cursos, estudiantes y matrículas
 php artisan db:seed --class=AcademicStructureSeeder
+
+# Docentes y su asignación a los cursos (después del anterior: necesita los cursos creados)
 php artisan db:seed --class=TeachersSeeder
 
-# Notas del semestre en curso (acepta una ruta como argumento)
+# Notas (acepta una ruta como argumento)
 php artisan grades:import
-php artisan grades:import /ruta/a/los/xlsx
+php artisan grades:import "database/data/2026-2/Calificaciones"
 
 # Filas que no se pudieron cruzar con un estudiante matriculado
 php artisan grades:unmatched
@@ -118,7 +130,17 @@ php artisan grades:unmatched
 php artisan grades:import-previous archivo.xlsx --target=4B --level=4A --year=2025 --semester=2
 ```
 
-El cruce entre la fila del Excel y el estudiante se hace primero por correo electrónico y, si no aparece, por número de documento. `grades:unmatched` es la herramienta para revisar qué quedó suelto antes de dar por buena una importación.
+Ambos seeders son idempotentes: se pueden volver a correr sin duplicar nada.
+
+En las notas, el cruce entre la fila del Excel y el estudiante se hace primero por correo y, si no aparece, por documento. **El nombre del archivo `.xlsx` tiene que ser el código del curso** (`C3BMATM1S22026.xlsx`); si no coincide con ninguno, el archivo se salta. `grades:unmatched` es la herramienta para revisar qué quedó suelto antes de dar por buena una importación.
+
+### Agregar un semestre nuevo
+
+1. Dejar los `.csv` de matrícula y el `.xlsx` de docentes en `database/data/<año>-<semestre>/`.
+2. En `AcademicStructureSeeder`, sumar esa carpeta a `DATA_DIRS` y el archivo de docentes a `FILES` en `TeachersSeeder`.
+3. Si Moodle pegó el grupo a la cohorte —`Ciclo4BG1S22026` y `Ciclo4BG2S22026` son un solo Ciclo 4B con dos grupos—, mapearlas en `COHORT_ALIASES`.
+4. Si el ciclo ocupa dos semestres, enlazarlo con el anterior en `PREVIOUS_CYCLES`.
+5. Correr los dos seeders y revisar en el panel que ningún curso quede sin docente.
 
 ---
 

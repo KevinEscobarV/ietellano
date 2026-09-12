@@ -13,7 +13,7 @@
         <flux:table.rows>
             @forelse ($areas as $area)
                 <flux:table.row :key="$area->id">
-                    <flux:table.cell>{{ $area->cycle->name }}</flux:table.cell>
+                    <flux:table.cell>{{ $area->cycle->label }}</flux:table.cell>
                     <flux:table.cell class="font-medium">{{ $area->name }}</flux:table.cell>
                     <flux:table.cell>
                         <div class="flex flex-wrap gap-1">
@@ -57,7 +57,7 @@
             <div class="grid gap-4 sm:grid-cols-2">
                 <flux:select wire:model.live="cycle_id" :label="__('Ciclo')" :placeholder="__('Selecciona')">
                     @foreach ($cycles as $cycle)
-                        <flux:select.option :value="$cycle->id">{{ $cycle->name }}</flux:select.option>
+                        <flux:select.option :value="$cycle->id">{{ $cycle->label }}</flux:select.option>
                     @endforeach
                 </flux:select>
                 <flux:input wire:model="name" :label="__('Nombre')" placeholder="Ciencias Naturales" />

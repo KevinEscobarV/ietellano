@@ -14,7 +14,7 @@
         <flux:table.rows>
             @forelse ($groups as $group)
                 <flux:table.row :key="$group->id">
-                    <flux:table.cell>{{ $group->cycle->name }}</flux:table.cell>
+                    <flux:table.cell>{{ $group->cycle->label }}</flux:table.cell>
                     <flux:table.cell class="font-medium">{{ $group->name }}</flux:table.cell>
                     <flux:table.cell class="text-zinc-500">{{ $group->code ?? '—' }}</flux:table.cell>
                     <flux:table.cell align="center">{{ $group->enrollments_count }}</flux:table.cell>
@@ -50,7 +50,7 @@
             <flux:heading size="lg">{{ $editingId ? __('Editar grupo') : __('Nuevo grupo') }}</flux:heading>
             <flux:select wire:model="cycle_id" :label="__('Ciclo')" :placeholder="__('Selecciona un ciclo')">
                 @foreach ($cycles as $cycle)
-                    <flux:select.option :value="$cycle->id">{{ $cycle->name }}</flux:select.option>
+                    <flux:select.option :value="$cycle->id">{{ $cycle->label }}</flux:select.option>
                 @endforeach
             </flux:select>
             <flux:input wire:model="name" :label="__('Nombre')" placeholder="Ciclo 5-1" />

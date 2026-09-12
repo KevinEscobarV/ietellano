@@ -10,11 +10,15 @@ use Illuminate\Database\Seeder;
 class TeachersSeeder extends Seeder
 {
     /**
+     * Archivos de `database/data` con los docentes y sus cursos, en orden
+     * cronológico. Un semestre nuevo es una línea más.
+     *
      * @var list<string>
      */
     private const FILES = [
         'DOCENTES.xlsx',
         'DOCENTES MODULO2.xlsx',
+        '2026-2/DOCENTES MODULO1 SEM2 2026.xlsx',
     ];
 
     private int $assigned = 0;
@@ -24,7 +28,7 @@ class TeachersSeeder extends Seeder
     public function run(XlsxReader $reader): void
     {
         foreach (self::FILES as $file) {
-            $path = database_path('data'.DIRECTORY_SEPARATOR.$file);
+            $path = database_path('data'.DIRECTORY_SEPARATOR.str_replace('/', DIRECTORY_SEPARATOR, $file));
 
             if (is_file($path)) {
                 foreach ($reader->rows($path) as $row) {
@@ -57,8 +61,13 @@ class TeachersSeeder extends Seeder
             ],
         );
 
-        for ($i = 1; $i <= 5; $i++) {
-            $code = trim($row["course{$i}"] ?? '');
+        // El número de columnas course* cambia de un archivo a otro.
+        foreach ($row as $column => $value) {
+            if (! preg_match('/^course\d+$/', $column)) {
+                continue;
+            }
+
+            $code = trim($value);
 
             if ($code === '') {
                 continue;

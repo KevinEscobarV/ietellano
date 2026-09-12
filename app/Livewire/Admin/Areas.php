@@ -110,7 +110,7 @@ class Areas extends Component
 
         return view('livewire.admin.areas', [
             'areas' => $areas,
-            'cycles' => Cycle::orderBy('level')->get(),
+            'cycles' => Cycle::ordered()->get(),
             'cycleSubjects' => $cycleSubjects,
         ]);
     }

@@ -21,6 +21,21 @@ class MyCourses extends Component
 
     public string $search = '';
 
+    /**
+     * Un docente arrastra los cursos de los semestres anteriores. Abrir en
+     * "todos" mezclaría el semestre cerrado con el que está en curso, así que
+     * se entra por el más reciente y el filtro deja ver el resto.
+     */
+    public function mount(): void
+    {
+        if ($this->cycleId === '') {
+            $this->cycleId = (string) (Cycle::query()
+                ->whereHas('courses', fn ($query) => $query->where('teacher_id', $this->teacher()->id))
+                ->ordered()
+                ->value('id') ?? '');
+        }
+    }
+
     public function render(): View
     {
         $teacher = $this->teacher();
@@ -79,7 +94,7 @@ class MyCourses extends Component
                 mb_strtolower(implode(' ', [
                     $course->subject?->name ?? '',
                     $course->group?->name ?? '',
-                    $course->cycle?->name ?? '',
+                    $course->cycle?->label ?? '',
                 ])),
                 $needle,
             )))
@@ -189,7 +204,7 @@ class MyCourses extends Component
             'subject' => $course->subject?->name ?? $course->code,
             'group' => $course->group?->name ?? '',
             'period' => $course->period,
-            'cycle' => $course->cycle?->name ?? '',
+            'cycle' => $course->cycle?->label ?? '',
             'cycle_id' => $course->cycle_id,
             'cycle_rank' => ($course->cycle?->year ?? 0) * 10 + ($course->cycle?->semester ?? 0),
             'students' => $students,

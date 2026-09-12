@@ -85,7 +85,7 @@ class GradeEditor extends Component
 
     public function render(): View
     {
-        $cycles = Cycle::orderBy('level')->get();
+        $cycles = Cycle::ordered()->get();
 
         $courses = $this->cycleId
             ? Course::where('cycle_id', $this->cycleId)->with('subject', 'group')->orderBy('code')->get()

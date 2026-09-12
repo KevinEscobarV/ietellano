@@ -58,7 +58,7 @@
                 <flux:badge size="sm" color="zinc" variant="outline">{{ $course->group->name }}</flux:badge>
             @endif
             @if ($course->cycle)
-                <flux:badge size="sm" color="zinc" variant="outline">{{ $course->cycle->name }}</flux:badge>
+                <flux:badge size="sm" color="zinc" variant="outline">{{ $course->cycle->label }}</flux:badge>
             @endif
             <flux:badge size="sm" color="zinc" variant="outline">{{ $course->code }}</flux:badge>
         </div>
