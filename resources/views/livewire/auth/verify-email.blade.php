@@ -13,9 +13,7 @@
         <div class="flex flex-col items-center justify-between space-y-3">
             <form method="POST" action="{{ route('verification.send') }}">
                 @csrf
-                <flux:button type="submit" variant="primary" class="w-full">
-                    {{ __('Resend verification email') }}
-                </flux:button>
+                <x-llano-submit>{{ __('Resend verification email') }}</x-llano-submit>
             </form>
 
             <form method="POST" action="{{ route('logout') }}">

@@ -264,6 +264,7 @@ app/
 ├── Console/Commands/     Importación de notas desde xlsx
 ├── Http/Middleware/      EnsureUserIsTeacher: puerta del portal docente
 ├── Livewire/
+│   ├── Dashboard.php     Tablero: avance de notas, matrícula, pendientes
 │   ├── Admin/            Panel: usuarios, roles, estudiantes, docentes,
 │   │                     estructura, notas, boletines, certificados
 │   ├── Teacher/          Portal docente: MyCourses y Gradebook
@@ -274,6 +275,7 @@ app/
 └── Support/              XlsxReader, ResizesInstitutionLogo
 
 lang/es/                  Validación, autenticación y paginación en español
+lang/es.json              Los textos sueltos del starter kit
 routes/
 ├── web.php               Portada y tablero
 ├── admin.php             /admin/*  (rol super-admin o admin)
