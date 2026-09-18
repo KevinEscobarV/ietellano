@@ -12,7 +12,7 @@ enum AttendanceStatus: string
     {
         return match ($this) {
             self::Present => __('Presente'),
-            self::Absent => __('Falló'),
+            self::Absent => __('Ausente'),
             self::Excused => __('Justificada'),
         };
     }

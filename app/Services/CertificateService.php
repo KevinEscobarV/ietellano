@@ -28,6 +28,12 @@ class CertificateService
         ['name' => 'Filosofía', 'subjects' => ['FIL']],
     ];
 
+    /**
+     * Promedio a partir del cual se aprueba el ciclo arrastrando una materia
+     * perdida. Con dos o más no hay promedio que valga.
+     */
+    public const PASSING_WITH_ONE_FAILED = 4.0;
+
     private const ROMAN = [1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV', 5 => 'V', 6 => 'VI', 7 => 'VII', 8 => 'VIII', 9 => 'IX', 10 => 'X'];
 
     /**
@@ -41,6 +47,7 @@ class CertificateService
      *     average: ?float,
      *     average_performance: ?string,
      *     approved: bool,
+     *     failed_subjects: list<string>,
      *     verb: string
      * }
      */
@@ -49,12 +56,25 @@ class CertificateService
         $previous = $bothSemesters ? $cycle->previousCycle : null;
         $both = $previous !== null;
 
+        $sem1 = $both ? $this->subjectFinals($student, $previous) : [];
+        $sem2 = $this->subjectFinals($student, $cycle);
+
         $lines = $both
-            ? $this->buildAreasCombined($this->subjectFinals($student, $previous), $this->subjectFinals($student, $cycle))
-            : $this->buildAreas($this->subjectFinals($student, $cycle));
+            ? $this->buildAreasCombined($sem1, $sem2)
+            : $this->buildAreas($sem2);
 
         $average = $this->average(array_column($lines, 'cal'));
-        $approved = $average !== null && $average >= BoletinService::PASSING_SCORE;
+        $failed = $this->failedSubjects($sem1, $sem2);
+
+        $approved = match (true) {
+            // Sin notas no hay nada que certificar.
+            $average === null => false,
+            $average < BoletinService::PASSING_SCORE => false,
+            $failed === [] => true,
+            // Una materia perdida se arrastra, pero solo con un buen promedio.
+            count($failed) === 1 => $average >= self::PASSING_WITH_ONE_FAILED,
+            default => false,
+        };
 
         return [
             'student' => $student,
@@ -69,8 +89,45 @@ class CertificateService
             'average' => $average,
             'average_performance' => BoletinService::performance($average),
             'approved' => $approved,
+            'failed_subjects' => $failed,
             'verb' => $approved ? 'Cursó y Aprobó' : 'Cursó y No Aprobó',
         ];
+    }
+
+    /**
+     * Las asignaturas por debajo del mínimo.
+     *
+     * Se mira asignatura por asignatura y no por el área que sale impresa: un
+     * área junta dos materias —Humanidades es Lengua e Inglés— y el promedio de
+     * las dos puede tapar una perdida.
+     *
+     * Una asignatura sin nota no cuenta como perdida: no se calificó, y eso se
+     * arregla poniendo la nota, no reprobando a nadie. Solo se revisan las que
+     * componen las áreas del certificado, que son las que el documento afirma.
+     *
+     * @param  array<string, ?float>  $sem1
+     * @param  array<string, ?float>  $sem2
+     * @return list<string>
+     */
+    private function failedSubjects(array $sem1, array $sem2): array
+    {
+        $official = array_flip(array_merge(...array_column(self::OFFICIAL_AREAS, 'subjects')));
+
+        $failed = [];
+
+        foreach (array_keys(array_intersect_key($sem1 + $sem2, $official)) as $code) {
+            $final = $this->average([$sem1[$code] ?? null, $sem2[$code] ?? null]);
+
+            if ($final !== null && $final < BoletinService::PASSING_SCORE) {
+                $failed[] = $code;
+            }
+        }
+
+        // El orden de los cursos lo pone la base de datos; ordenarlas deja la
+        // lista igual de una ejecución a otra.
+        sort($failed);
+
+        return $failed;
     }
 
     /**

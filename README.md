@@ -111,6 +111,20 @@ Cycle ── EditWindow ── Course   (permiso con plazo para editar un ciclo 
 - Las **áreas** agrupan materias para que el boletín muestre una línea por área con sus componentes.
 - Escala de **0 a 5**, se aprueba con **3.0**. Desempeño según el Decreto 1290: Superior ≥ 4.6 · Alto ≥ 4.0 · Básico ≥ 3.0 · Bajo por debajo.
 
+### Quién aprueba el ciclo
+
+Es lo que decide si el certificado dice *Cursó y Aprobó* o *Cursó y No Aprobó*, y lo resuelve `CertificateService`. La regla tiene tres escalones:
+
+| Asignaturas perdidas | Aprueba si |
+|---|---|
+| Ninguna | el promedio llega a **3.0** |
+| Una | el promedio llega a **4.0** (`PASSING_WITH_ONE_FAILED`) |
+| Dos o más | no aprueba, por alto que sea el promedio |
+
+Lo perdido se cuenta **por asignatura**, no por las áreas que salen impresas: un área junta dos materias —Humanidades es Lengua e Inglés— y el promedio de las dos puede tapar una perdida. Como consecuencia, un certificado puede salir con todas sus líneas por encima de 3.0 y aun así decir que no aprobó.
+
+Antes de compararla, la nota de una asignatura se promedia entre sus periodos y, en el certificado de dos semestres, entre los dos. Una asignatura **sin calificar** no cuenta como perdida: eso se arregla poniendo la nota. La pérdida por inasistencia no entra aquí — vive en el boletín.
+
 ### Asistencia
 
 Una falla pertenece a una clase concreta: **curso + día**. Eso es lo que permite decir "perdió Matemáticas por inasistencia", que un registro por jornada no soportaría.

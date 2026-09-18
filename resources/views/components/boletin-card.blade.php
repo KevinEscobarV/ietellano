@@ -21,7 +21,7 @@
         <div>
             <flux:heading size="lg" class="uppercase tracking-wide">{{ config('app.institution') }}</flux:heading>
             <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Educación de adultos · Validación de bachillerato') }}</p>
-            <p class="mt-3 text-base font-semibold">{{ __('CERTIFICADO DE CALIFICACIONES') }}</p>
+            <p class="mt-3 text-base font-semibold">{{ __('BOLETÍN DE CALIFICACIONES') }}</p>
             <p class="text-sm text-zinc-500 dark:text-zinc-400">
                 {{ $boletin['cycle_label'] }} · {{ __('Año') }} {{ $boletin['cycle']->year }} · {{ __('Semestre') }} {{ $boletin['cycle']->semester }}
             </p>

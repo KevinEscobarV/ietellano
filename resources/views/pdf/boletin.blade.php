@@ -78,7 +78,7 @@
                         <td style="text-align: center;">
                             <div class="inst-name">{{ config('app.institution') }}</div>
                             <div class="inst-sub">Educación de adultos · Validación de bachillerato</div>
-                            <div class="doc-title">CERTIFICADO DE CALIFICACIONES</div>
+                            <div class="doc-title">BOLETÍN DE CALIFICACIONES</div>
                             <div class="cycle-meta">{{ $boletin['cycle_label'] }} · Año {{ $boletin['cycle']->year }} · Semestre {{ $boletin['cycle']->semester }}</div>
                         </td>
                         <td style="width: 84px;"></td>
