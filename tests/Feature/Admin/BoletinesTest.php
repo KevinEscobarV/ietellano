@@ -52,3 +52,22 @@ it('arma el boletín del estudiante elegido', function () {
         ->assertSee('Matematicas')
         ->assertSee('3.50');
 });
+
+it('lista el primer semestre aunque ya tenga continuación', function () {
+    Cycle::create([
+        'code' => 'C5-2026-2',
+        'level' => '5',
+        'semester' => 2,
+        'year' => 2026,
+        'name' => 'Ciclo 5 siguiente',
+        'previous_cycle_id' => $this->cycle->id,
+    ]);
+
+    // Quien no siguió al segundo semestre solo tiene el boletín de este.
+    Livewire::actingAs($this->admin)
+        ->test(Boletines::class)
+        ->assertSee('Ciclo 5 · 2026-1')
+        ->set('cycleId', (string) $this->cycle->id)
+        ->set('studentId', (string) $this->student->id)
+        ->assertSee('3.50');
+});

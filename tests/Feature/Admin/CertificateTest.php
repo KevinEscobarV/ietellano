@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Admin\Certificates;
 use App\Models\Course;
 use App\Models\Cycle;
 use App\Models\Enrollment;
@@ -7,7 +8,10 @@ use App\Models\Grade;
 use App\Models\Group;
 use App\Models\Student;
 use App\Models\Subject;
+use App\Models\User;
 use App\Services\CertificateService;
+use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
 
 beforeEach(function () {
     $this->cycle = Cycle::create([
@@ -185,12 +189,43 @@ describe('certificado de los dos semestres', function () {
             'name' => 'Ciclo 4A',
         ]);
 
-        $this->cycle->update(['previous_cycle_id' => $this->previous->id]);
+        $this->cycle->update(['previous_cycle_id' => $this->previous->id, 'closed_at' => now()]);
 
         Enrollment::create([
             'student_id' => $this->student->id,
             'cycle_id' => $this->previous->id,
         ]);
+    });
+
+    it('no combina mientras el segundo semestre siga abierto', function () {
+        ($this->calificar)(['MAT' => 4.0, 'LEN' => 4.0], $this->previous);
+        $this->cycle->update(['closed_at' => null]);
+
+        $certificate = ($this->certificado)(true);
+
+        // Con el semestre 2 en curso certificaría un ciclo a medias.
+        expect(app(CertificateService::class)->canCombine($this->cycle->fresh()))->toBeFalse()
+            ->and($certificate['both'])->toBeFalse()
+            ->and($certificate['grade_label'])->toBe('CICLO V');
+    });
+
+    it('habla de un año lectivo si los dos semestres son del mismo año', function () {
+        ($this->calificar)(['MAT' => 4.0]);
+
+        $certificate = ($this->certificado)(true);
+
+        expect($certificate['year_label'])->toBe('2026')
+            ->and($certificate['spans_years'])->toBeFalse();
+    });
+
+    it('nombra los dos años cuando el ciclo cruza de año', function () {
+        $this->previous->update(['year' => 2025, 'semester' => 2]);
+        ($this->calificar)(['MAT' => 4.0]);
+
+        $certificate = ($this->certificado)(true);
+
+        expect($certificate['year_label'])->toBe('2025 y 2026')
+            ->and($certificate['spans_years'])->toBeTrue();
     });
 
     it('suma los dos semestres antes de dar por perdida una asignatura', function () {
@@ -213,5 +248,84 @@ describe('certificado de los dos semestres', function () {
         expect($certificate['average'])->toBeGreaterThanOrEqual(3.0)
             ->and($certificate['failed_subjects'])->toBe(['MAT'])
             ->and($certificate['approved'])->toBeFalse();
+    });
+});
+
+describe('grado que nombra el certificado', function () {
+    beforeEach(function () {
+        $this->primero = Cycle::create([
+            'code' => 'Ciclo3AS12026', 'level' => '3A', 'semester' => 1, 'year' => 2026, 'name' => 'Ciclo 3A',
+        ]);
+
+        $this->segundo = Cycle::create([
+            'code' => 'Ciclo3BS22026', 'level' => '3B', 'semester' => 2, 'year' => 2026, 'name' => 'Ciclo 3B',
+            'previous_cycle_id' => $this->primero->id, 'closed_at' => now(),
+        ]);
+
+        $this->rotulo = fn (Cycle $cycle, bool $both = false) => app(CertificateService::class)
+            ->generate($this->student, $cycle, $both)['grade_label'];
+    });
+
+    it('escribe el semestre en vez de la letra del nivel', function () {
+        expect(($this->rotulo)($this->primero))->toBe('CICLO III – Semestre 1')
+            ->and(($this->rotulo)($this->segundo))->toBe('CICLO III – Semestre 2');
+    });
+
+    it('nombra el ciclo completo cuando junta los dos semestres', function () {
+        expect(($this->rotulo)($this->segundo, true))->toBe('CICLO III');
+    });
+
+    it('deja sin semestre a los ciclos de uno solo', function () {
+        expect(($this->rotulo)($this->cycle))->toBe('CICLO V');
+    });
+});
+
+describe('pantalla de certificados', function () {
+    beforeEach(function () {
+        Role::findOrCreate('admin');
+
+        $this->admin = User::factory()->create();
+        $this->admin->assignRole('admin');
+
+        $this->siguiente = Cycle::create([
+            'code' => 'Ciclo5S22026', 'level' => '5', 'semester' => 2, 'year' => 2026, 'name' => 'Ciclo 5 siguiente',
+            'previous_cycle_id' => $this->cycle->id,
+        ]);
+    });
+
+    it('lista el primer semestre aunque ya tenga continuación', function () {
+        Livewire::actingAs($this->admin)
+            ->test(Certificates::class)
+            ->assertSee('Ciclo 5 · 2026-1')
+            ->assertSee('Ciclo 5 siguiente · 2026-2');
+    });
+
+    it('certifica a quien se quedó en el primer semestre', function () {
+        ($this->calificar)(['MAT' => 4.0]);
+
+        Livewire::actingAs($this->admin)
+            ->test(Certificates::class)
+            ->set('cycleId', (string) $this->cycle->id)
+            ->set('studentId', (string) $this->student->id)
+            ->assertSee('Gomez, Ana')
+            ->assertSee('CICLO V');
+    });
+
+    it('no deja juntar los semestres hasta que se cierre el segundo', function () {
+        Livewire::actingAs($this->admin)
+            ->test(Certificates::class)
+            ->set('cycleId', (string) $this->siguiente->id)
+            ->set('bothSemesters', true)
+            ->assertSee('Se habilita cuando este semestre esté cerrado')
+            ->assertViewHas('combining', false);
+
+        $this->siguiente->update(['closed_at' => now()]);
+
+        Livewire::actingAs($this->admin)
+            ->test(Certificates::class)
+            ->set('cycleId', (string) $this->siguiente->id)
+            ->set('bothSemesters', true)
+            ->assertDontSee('Se habilita cuando este semestre esté cerrado')
+            ->assertViewHas('combining', true);
     });
 });

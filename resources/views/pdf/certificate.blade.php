@@ -105,7 +105,7 @@
                     <span style="font-weight: bold;">{{ $certificate['student']->document ?? '—' }}</span>,
                     <span style="font-weight: bold;">{{ $certificate['verb'] }}</span> en esta Institución el Grado
                     <span style="font-weight: bold;">{{ $certificate['grade_label'] }}</span>
-                    {{ $certificate['both'] ? 'durante los años lectivos' : 'durante el año lectivo' }} <span style="font-weight: bold;">{{ $certificate['year_label'] }}</span>,
+                    {{ $certificate['spans_years'] ? 'durante los años lectivos' : 'durante el año lectivo' }} <span style="font-weight: bold;">{{ $certificate['year_label'] }}</span>,
                     periodo durante el cual obtuvo los siguientes desempeños:
                 </p>
 

@@ -43,6 +43,8 @@ class CertificateService
      *     group: ?string,
      *     grade_label: string,
      *     year: int,
+     *     year_label: string,
+     *     spans_years: bool,
      *     lines: list<array{name: string, cal: ?float, performance: ?string}>,
      *     average: ?float,
      *     average_performance: ?string,
@@ -53,8 +55,9 @@ class CertificateService
      */
     public function generate(Student $student, Cycle $cycle, bool $bothSemesters = false): array
     {
-        $previous = $bothSemesters ? $cycle->previousCycle : null;
+        $previous = $bothSemesters && $this->canCombine($cycle) ? $cycle->previousCycle : null;
         $both = $previous !== null;
+        $years = array_values(array_unique(array_filter([$previous?->year, $cycle->year])));
 
         $sem1 = $both ? $this->subjectFinals($student, $previous) : [];
         $sem2 = $this->subjectFinals($student, $cycle);
@@ -84,7 +87,8 @@ class CertificateService
             'group' => $student->enrollments()->with('group')->where('cycle_id', $cycle->id)->first()?->group?->name,
             'grade_label' => $this->gradeLabel($cycle, ! $both),
             'year' => $cycle->year,
-            'year_label' => (string) $cycle->year,
+            'year_label' => implode(' y ', $years),
+            'spans_years' => count($years) > 1,
             'lines' => $lines,
             'average' => $average,
             'average_performance' => BoletinService::performance($average),
@@ -92,6 +96,16 @@ class CertificateService
             'failed_subjects' => $failed,
             'verb' => $approved ? 'Cursó y Aprobó' : 'Cursó y No Aprobó',
         ];
+    }
+
+    /**
+     * El certificado de los dos semestres da por cursado el ciclo completo, así
+     * que solo se expide cuando el segundo semestre ya se cerró. Antes de eso
+     * saldría con el semestre 2 vacío y certificaría un ciclo a medias.
+     */
+    public function canCombine(Cycle $cycle): bool
+    {
+        return $cycle->previous_cycle_id !== null && $cycle->isClosed();
     }
 
     /**
@@ -237,13 +251,22 @@ class CertificateService
         return round(array_sum($numbers) / count($numbers), 2);
     }
 
-    private function gradeLabel(Cycle $cycle, bool $includeLetter = true): string
+    /**
+     * Los ciclos 3 y 4 duran dos semestres y el nivel los marca con letra: 3A es
+     * el primero y 3B el segundo. La letra no le dice nada a quien lee el
+     * certificado, así que se escribe el semestre: "CICLO III – Semestre 1".
+     */
+    private function gradeLabel(Cycle $cycle, bool $includeSemester = true): string
     {
         preg_match('/(\d+)\s*([A-Za-z])?/', $cycle->level, $matches);
 
         $roman = self::ROMAN[(int) ($matches[1] ?? 0)] ?? $cycle->level;
-        $letter = $includeLetter && isset($matches[2]) && $matches[2] !== '' ? '-'.strtoupper($matches[2]) : '';
+        $letter = strtoupper($matches[2] ?? '');
 
-        return 'CICLO '.$roman.$letter;
+        $semester = $includeSemester && $letter !== ''
+            ? ' – Semestre '.(ord($letter) - ord('A') + 1)
+            : '';
+
+        return 'CICLO '.$roman.$semester;
     }
 }

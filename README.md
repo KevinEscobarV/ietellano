@@ -153,7 +153,7 @@ Lo único que se comparte entre semestres es el **estudiante**: es la misma pers
 
 Como el nivel se repite cada semestre, en pantalla los ciclos se muestran con su semestre (`Ciclo 5 · 2026-2`) y los selectores ordenan el semestre en curso primero.
 
-Un ciclo de dos semestres —el 3 y el 4— enlaza el semestre 1 con el 2 por `previous_cycle_id`, y el boletín sale con columnas *Semestre 1 / Semestre 2 / Final*. El semestre que queda como anterior desaparece de la lista de boletines: el boletín del ciclo completo se genera desde el semestre 2.
+Un ciclo de dos semestres —el 3 y el 4— enlaza el semestre 1 con el 2 por `previous_cycle_id`. Cada semestre tiene su propio boletín y su propio certificado, que dice `CICLO III – Semestre 1` o `– Semestre 2` según la letra del nivel. Desde el semestre 2 se puede además sacar el del ciclo completo, con columnas *Semestre 1 / Semestre 2 / Final*. El boletín combinado sale en cualquier momento, como reporte de avance; el certificado combinado solo cuando el semestre 2 está cerrado, porque da por cursado el ciclo entero.
 
 ---
 

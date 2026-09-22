@@ -26,9 +26,7 @@ class Boletines extends Component
 
     public function render(BoletinService $service): View
     {
-        $cycles = Cycle::whereNotIn('id', Cycle::whereNotNull('previous_cycle_id')->pluck('previous_cycle_id'))
-            ->ordered()
-            ->get();
+        $cycles = Cycle::ordered()->get();
 
         $students = $this->cycleId
             ? Student::query()

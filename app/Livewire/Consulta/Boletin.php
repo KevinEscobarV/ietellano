@@ -52,9 +52,8 @@ class Boletin extends Component
 
     /**
      * Los semestres que puede consultar: aquellos en los que está matriculado,
-     * el más reciente primero. Los ciclos históricos —los que solo existen
-     * como semestre previo de otro— no se ofrecen sueltos; se ven desde el
-     * ciclo que los continúa.
+     * el más reciente primero. El primer semestre de un ciclo de dos también se
+     * ofrece suelto: quien se retiró después de 3A no tiene otro boletín.
      *
      * @return Collection<int, Cycle>
      */
@@ -63,7 +62,6 @@ class Boletin extends Component
     {
         return Cycle::query()
             ->whereRelation('enrollments', 'student_id', $this->student->id)
-            ->whereNotIn('id', Cycle::whereNotNull('previous_cycle_id')->pluck('previous_cycle_id'))
             ->ordered()
             ->get();
     }

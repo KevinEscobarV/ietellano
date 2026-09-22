@@ -179,7 +179,7 @@ it('avisa que el semestre sigue en curso', function () {
     Livewire::test(Boletin::class)->assertSee('Semestre en curso');
 });
 
-it('esconde el semestre histórico y ofrece el boletín de los dos semestres', function () {
+it('ofrece cada semestre suelto y el boletín de los dos semestres', function () {
     $previous = Cycle::create([
         'code' => 'C5-2025-2',
         'level' => '5',
@@ -193,9 +193,28 @@ it('esconde el semestre histórico y ofrece el boletín de los dos semestres', f
 
     session([Boletin::SESSION_KEY => $this->student->id]);
 
+    // Quien se retiró después del primer semestre solo tiene ese boletín.
     Livewire::test(Boletin::class)
-        ->assertDontSee('Ciclo 5 del año pasado')
+        ->assertSee('Ciclo 5 del año pasado')
         ->assertSee('Incluir el semestre anterior');
+});
+
+it('le muestra su boletín a quien no siguió al segundo semestre', function () {
+    Cycle::create([
+        'code' => 'C5-2026-2',
+        'level' => '5',
+        'semester' => 2,
+        'year' => 2026,
+        'name' => 'Ciclo 5 siguiente',
+        'previous_cycle_id' => $this->cycle->id,
+    ]);
+
+    session([Boletin::SESSION_KEY => $this->student->id]);
+
+    Livewire::test(Boletin::class)
+        ->assertSet('cycleId', $this->cycle->id)
+        ->assertDontSee('Todavía no apareces matriculado')
+        ->assertSee('3.50');
 });
 
 it('ignora un semestre en el que el estudiante no está matriculado', function () {

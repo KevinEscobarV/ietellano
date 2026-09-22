@@ -72,7 +72,7 @@ class CertificatePdfExporter
     {
         return Student::query()
             ->whereRelation('enrollments', 'cycle_id', $cycle->id)
-            ->when($bothSemesters && $cycle->previous_cycle_id, fn ($query) => $query->whereRelation('enrollments', 'cycle_id', $cycle->previous_cycle_id))
+            ->when($bothSemesters && $this->service->canCombine($cycle), fn ($query) => $query->whereRelation('enrollments', 'cycle_id', $cycle->previous_cycle_id))
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->get();

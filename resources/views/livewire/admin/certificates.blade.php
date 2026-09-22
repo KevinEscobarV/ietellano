@@ -22,7 +22,7 @@
             <flux:subheading>{{ __('Generar certificado de calificaciones por estudiante') }}</flux:subheading>
         </div>
         @php
-            $downloadParams = $bothSemesters ? ['both' => 1] : [];
+            $downloadParams = $combining ? ['both' => 1] : [];
         @endphp
         <div class="flex items-center gap-3">
             @if ($cycleId)
@@ -58,7 +58,15 @@
 
     @if ($hasPrevious)
         <div class="mb-6 print:hidden">
-            <flux:checkbox wire:model.live="bothSemesters" :label="__('Incluir semestre anterior (dos semestres)')" />
+            @if ($canCombine)
+                <flux:checkbox wire:model.live="bothSemesters" :label="__('Incluir semestre anterior (dos semestres)')" />
+            @else
+                <flux:checkbox
+                    disabled
+                    :label="__('Incluir semestre anterior (dos semestres)')"
+                    :description="__('Se habilita cuando este semestre esté cerrado: el certificado de los dos semestres da por cursado el ciclo completo. Ciérralo en Cierre de semestre.')"
+                />
+            @endif
         </div>
     @endif
 
@@ -109,7 +117,7 @@
                     <span class="font-semibold">{{ $certificate['student']->document ?? '—' }}</span>,
                     <span class="font-semibold">{{ $certificate['verb'] }}</span> {{ __('en esta Institución el Grado') }}
                     <span class="font-bold">{{ $certificate['grade_label'] }}</span>
-                    {{ $certificate['both'] ? __('durante los años lectivos') : __('durante el año lectivo') }} <span class="font-bold">{{ $certificate['year_label'] }}</span>,
+                    {{ $certificate['spans_years'] ? __('durante los años lectivos') : __('durante el año lectivo') }} <span class="font-bold">{{ $certificate['year_label'] }}</span>,
                     {{ __('periodo durante el cual obtuvo los siguientes desempeños:') }}
                 </p>
 

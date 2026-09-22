@@ -29,9 +29,7 @@ class Certificates extends Component
 
     public function render(CertificateService $service): View
     {
-        $cycles = Cycle::whereNotIn('id', Cycle::whereNotNull('previous_cycle_id')->pluck('previous_cycle_id'))
-            ->ordered()
-            ->get();
+        $cycles = Cycle::ordered()->get();
 
         $students = $this->cycleId
             ? Student::query()
@@ -42,13 +40,15 @@ class Certificates extends Component
             : collect();
 
         $cycle = $this->cycleId ? $cycles->firstWhere('id', $this->cycleId) : null;
+        $canCombine = $cycle !== null && $service->canCombine($cycle);
+        $combining = $this->bothSemesters && $canCombine;
         $certificate = null;
 
         if ($cycle && $this->studentId) {
             $student = $students->firstWhere('id', $this->studentId);
 
             if ($student) {
-                $certificate = $service->generate($student, $cycle, $this->bothSemesters);
+                $certificate = $service->generate($student, $cycle, $combining);
             }
         }
 
@@ -59,6 +59,8 @@ class Certificates extends Component
             'students' => $students,
             'certificate' => $certificate,
             'hasPrevious' => (bool) $cycle?->previous_cycle_id,
+            'canCombine' => $canCombine,
+            'combining' => $combining,
             'issuedDate' => self::MONTHS[$now->month].' '.$now->day.' de '.$now->year,
         ]);
     }
