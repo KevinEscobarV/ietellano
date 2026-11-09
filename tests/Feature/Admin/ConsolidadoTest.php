@@ -213,31 +213,181 @@ describe('el consolidado del ciclo', function () {
             ->and($consolidado['showGroup'])->toBeTrue();
     });
 
-    it('con los dos semestres promedia la definitiva de cada uno', function () {
-        $previous = Cycle::create(['code' => 'C5-2026-1', 'level' => '5', 'semester' => 1, 'year' => 2026, 'name' => 'Ciclo 5']);
-        $previousGroup = Group::create(['cycle_id' => $previous->id, 'name' => '5-1', 'code' => 'P51']);
-        $this->cycle->update(['previous_cycle_id' => $previous->id]);
+});
 
+/**
+ * Convierte el ciclo de prueba en 3B, el segundo semestre de un ciclo de un
+ * año, y le arma su 3A: Ana y Beto cursaron los dos; Carla entró en 3B y
+ * Diana cursó 3A y no siguió.
+ */
+function makeYearLongCycle(object $test): Cycle
+{
+    $test->cycle->update(['level' => '3B', 'name' => 'Ciclo 3B']);
+
+    $previous = Cycle::create(['code' => 'C3A-2026-1', 'level' => '3A', 'semester' => 1, 'year' => 2026, 'name' => 'Ciclo 3A']);
+    $group = Group::create(['cycle_id' => $previous->id, 'name' => '3A-1', 'code' => 'G3A']);
+    $test->cycle->update(['previous_cycle_id' => $previous->id]);
+
+    foreach (['MAT', 'LEN'] as $code) {
         foreach ([1, 2] as $period) {
-            $this->courses["PMAT{$period}"] = Course::create([
-                'code' => "P5MATM{$period}",
+            $test->courses["P{$code}{$period}"] = Course::create([
+                'code' => "C3A{$code}M{$period}",
                 'cycle_id' => $previous->id,
-                'subject_id' => Subject::where('code', 'MAT')->value('id'),
+                'subject_id' => Subject::where('code', $code)->value('id'),
                 'period' => $period,
             ]);
         }
+    }
 
-        Enrollment::create(['student_id' => $this->ana->id, 'cycle_id' => $previous->id, 'group_id' => $previousGroup->id]);
-        Grade::create(['course_id' => $this->courses['PMAT1']->id, 'student_id' => $this->ana->id, 'score' => 3.0]);
-        Grade::create(['course_id' => $this->courses['PMAT2']->id, 'student_id' => $this->ana->id, 'score' => 3.0]);
+    $test->diana = Student::create(['document' => '777', 'first_name' => 'DIANA', 'last_name' => 'DUARTE', 'email' => 'diana@example.com']);
 
-        $consolidado = ($this->consolidado)('m1', true);
+    $grades = [
+        [$test->ana, ['PMAT1' => 3.0, 'PMAT2' => 3.0, 'PLEN1' => 4.0, 'PLEN2' => 4.0]],
+        [$test->beto, ['PMAT1' => 2.0, 'PMAT2' => 2.0, 'PLEN1' => 3.0, 'PLEN2' => 3.0]],
+        [$test->diana, ['PMAT1' => 1.0, 'PMAT2' => 1.0, 'PLEN1' => 2.0, 'PLEN2' => 2.0]],
+    ];
 
-        // Solo entra quien cursó los dos semestres, y no hay vista por módulo.
-        expect(array_column($consolidado['rows'], 'name'))->toBe(['AREVALO ANA'])
-            ->and($consolidado)->toMatchArray(['both' => true, 'view' => 'definitiva', 'title' => 'Definitivas de los dos semestres'])
-            ->and($consolidado['rows'][0]['cells']['Matemáticas'])->toMatchArray(['first' => 3.0, 'second' => 4.5, 'score' => 3.75, 'complete' => true])
-            ->and($consolidado['detailLabels'])->toBe(['Sem. 1', 'Sem. 2', 'Final']);
+    foreach ($grades as [$student, $scores]) {
+        Enrollment::create(['student_id' => $student->id, 'cycle_id' => $previous->id, 'group_id' => $group->id]);
+
+        foreach ($scores as $course => $score) {
+            Grade::create(['course_id' => $test->courses[$course]->id, 'student_id' => $student->id, 'score' => $score]);
+        }
+    }
+
+    return $previous;
+}
+
+describe('ciclos de un año (3A y 3B)', function () {
+    beforeEach(function () {
+        $this->previous = makeYearLongCycle($this);
+    });
+
+    it('lee el año completo con todos los estudiantes del segundo semestre', function () {
+        $consolidado = ($this->consolidado)('definitiva', true);
+
+        expect(array_column($consolidado['rows'], 'name'))->toBe(['AREVALO ANA', 'BELTRAN BETO', 'CASTRO CARLA'])
+            ->and($consolidado)->toMatchArray([
+                'year' => true,
+                'title' => 'Definitivas del año',
+                'scope' => 'Ciclo 3 · 3A (2026-1) y 3B (2026-2)',
+                'yearParts' => ['previous' => '3A', 'current' => '3B'],
+                'detailLabels' => ['3A', '3B', 'Año'],
+            ]);
+    });
+
+    it('la nota del año es el promedio de la definitiva de los dos semestres', function () {
+        $ana = ($this->row)(($this->consolidado)('definitiva', true), $this->ana);
+
+        // Perdió Lengua en 3B (2.2), pero con el 4.0 de 3A la aprueba en el año.
+        expect($ana['cells']['Matemáticas'])->toMatchArray(['first' => 3.0, 'second' => 4.5, 'score' => 3.75, 'complete' => true])
+            ->and($ana['cells']['Lengua Castellana'])->toMatchArray(['first' => 4.0, 'second' => 2.2, 'score' => 3.1, 'failed' => false]);
+    });
+
+    it('quien no cursó el primer semestre va marcado, sin puesto y fuera de las cuentas', function () {
+        $consolidado = ($this->consolidado)('definitiva', true);
+        $carla = ($this->row)($consolidado, $this->carla);
+
+        expect($carla)->toMatchArray(['took_previous' => false, 'rank' => null])
+            ->and(($this->row)($consolidado, $this->ana)['rank'])->not->toBeNull()
+            ->and($consolidado['summary'])->toMatchArray(['students' => 3, 'without_previous' => 1, 'graded' => 2])
+            ->and($consolidado['stats']['Matemáticas']['students'])->toBe(2);
+    });
+
+    it('cuenta a quienes cursaron el primer semestre y no siguieron', function () {
+        $consolidado = ($this->consolidado)('definitiva', true);
+
+        expect($consolidado['summary']['dropped'])->toBe(1)
+            ->and($consolidado['dropped'])->toHaveCount(1)
+            ->and($consolidado['dropped'][0])->toMatchArray(['name' => 'DUARTE DIANA', 'average' => 1.5, 'failed' => 2, 'group' => '3A-1'])
+            // Por grupo no se puede: los grupos de 3A no son los de 3B.
+            ->and(($this->consolidado)('definitiva', true, $this->g1->id)['dropped'])->toBe([]);
+    });
+
+    it('es definitivo solo con los dos semestres cerrados', function () {
+        $this->cycle->closeModule(1);
+
+        expect(($this->consolidado)('definitiva', true)['status']['detail'])->toBe('El Módulo 2 de Ciclo 3B sigue abierto');
+
+        $this->cycle->close();
+
+        expect(($this->consolidado)('definitiva', true)['status'])->toMatchArray([
+            'definitive' => false,
+            'detail' => 'Ciclo 3A (2026-1) todavía tiene módulos abiertos',
+        ]);
+
+        $this->previous->close();
+
+        expect(($this->consolidado)('definitiva', true)['status']['definitive'])->toBeTrue();
+    });
+
+    it('solo el segundo semestre deja ver los módulos', function () {
+        expect(($this->consolidado)('m1', false))->toMatchArray(['year' => false, 'view' => 'm1'])
+            ->and(($this->consolidado)('m1', true))->toMatchArray(['year' => true, 'view' => 'definitiva']);
+    });
+
+    it('el primer semestre avisa que el año sigue en el segundo', function () {
+        $consolidado = app(ConsolidadoService::class)->forCycle($this->previous, 'definitiva', true);
+
+        expect($consolidado['year'])->toBeFalse()
+            ->and($consolidado['continuesIn']->id)->toBe($this->cycle->id);
+    });
+
+    it('todo el semestre lee el año en 3B, salvo por módulo', function () {
+        expect(app(ConsolidadoService::class)->forTerm(2026, 2)[0]['year'])->toBeTrue()
+            ->and(app(ConsolidadoService::class)->forTerm(2026, 2, 'm1')[0]['year'])->toBeFalse();
+    });
+
+    it('la pantalla abre en el año y deja pasar al semestre', function () {
+        Livewire::actingAs($this->admin)
+            ->test(Consolidados::class)
+            ->assertSee('Año completo (3A + 3B)')
+            ->assertSee('sin 3A')
+            ->assertSee('1 estudiante cursó 3A y no siguió en 3B')
+            ->assertViewHas('consolidado', fn (array $c) => $c['year'])
+            ->assertViewHas('downloadParams', [])
+            ->set('span', 'semestre')
+            ->set('view', 'm1')
+            ->assertViewHas('consolidado', fn (array $c) => ! $c['year'] && $c['view'] === 'm1')
+            ->assertViewHas('downloadParams', ['vista' => 'm1', 'alcance' => 'semestre'])
+            ->set('span', 'anio')
+            ->assertSet('view', 'definitiva');
+    });
+
+    it('3A lleva al consolidado del año en 3B', function () {
+        Livewire::actingAs($this->admin)
+            ->withQueryParams(['ciclo' => (string) $this->previous->id])
+            ->test(Consolidados::class)
+            ->assertSee('Ver el año en Ciclo 3B')
+            ->set('cycleId', (string) $this->cycle->id)
+            ->assertSet('semester', '2')
+            ->assertViewHas('consolidado', fn (array $c) => $c['year']);
+    });
+
+    it('el Excel del año trae quién cursó 3A y la hoja de los que no siguieron', function () {
+        $response = $this->actingAs($this->admin)
+            ->get(route('admin.consolidados.download', ['cycle' => $this->cycle->id, 'formato' => 'xlsx']))
+            ->assertOk()
+            ->assertDownload('consolidado-ciclo-3b-2026-2-anual.xlsx');
+
+        $path = $response->baseResponse->getFile()->getPathname();
+        $sheets = consolidadoSheets($path);
+        unlink($path);
+
+        expect(array_keys($sheets))->toBe(['Consolidado', 'Detalle por semestre', 'No siguieron en 3B'])
+            ->and($sheets['Consolidado'])->toContain('Cursó 3A', 'Definitivas del año', '<v>3.75</v>')
+            ->not->toContain('DUARTE DIANA')
+            ->and($sheets['No siguieron en 3B'])->toContain('DUARTE DIANA', '<v>1.5</v>');
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.consolidados.download', ['cycle' => $this->cycle->id, 'formato' => 'xlsx', 'alcance' => 'semestre']))
+            ->assertOk()
+            ->assertDownload('consolidado-ciclo-3b-2026-2.xlsx');
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.consolidados.download', ['cycle' => $this->cycle->id, 'formato' => 'pdf']))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
     });
 });
 
@@ -293,16 +443,11 @@ describe('la pantalla', function () {
             ->assertViewHas('downloadParams', ['vista' => 'm2', 'grupo' => $this->g2->id, 'orden' => 'puesto']);
     });
 
-    it('con los dos semestres vuelve a la definitiva', function () {
-        $previous = Cycle::create(['code' => 'C5-2026-1', 'level' => '5', 'semester' => 1, 'year' => 2026, 'name' => 'Ciclo 5']);
-        $this->cycle->update(['previous_cycle_id' => $previous->id]);
-
+    it('un ciclo de un semestre no ofrece el año', function () {
         Livewire::actingAs($this->admin)
             ->test(Consolidados::class)
-            ->set('view', 'm1')
-            ->set('bothSemesters', true)
-            ->assertSet('view', 'definitiva')
-            ->assertViewHas('downloadParams', ['dos' => 1]);
+            ->assertDontSee('Año completo')
+            ->assertViewHas('consolidado', fn (array $c) => ! $c['year'] && $c['yearParts'] === null && $c['continuesIn'] === null);
     });
 
     it('cambiar de ciclo suelta el grupo', function () {

@@ -23,7 +23,8 @@ class ConsolidadoDownloadController extends Controller
         $consolidado = $service->forCycle(
             $cycle,
             (string) $request->query('vista', 'definitiva'),
-            $request->boolean('dos'),
+            // Los ciclos de un año salen con el año completo, salvo que se pida el semestre.
+            $request->query('alcance', 'anio') !== 'semestre',
             $request->integer('grupo') ?: null,
             (string) $request->query('orden', 'nombre'),
         );

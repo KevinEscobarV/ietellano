@@ -20,7 +20,8 @@ class ConsolidadoExporter
 
     /**
      * La tabla del ciclo y una hoja con la nota de cada módulo (o de cada
-     * semestre) por materia. Devuelve la ruta de un archivo temporal.
+     * semestre) por materia. En el año, una hoja más con quienes cursaron el
+     * primer semestre y no siguieron. Devuelve la ruta de un archivo temporal.
      *
      * @param  array<string, mixed>  $consolidado
      */
@@ -29,7 +30,11 @@ class ConsolidadoExporter
         $book = new XlsxWriter;
 
         $this->consolidadoSheet($book, $consolidado, __('Consolidado'));
-        $this->detailSheet($book, $consolidado, $consolidado['both'] ? __('Detalle por semestre') : __('Detalle por módulo'));
+        $this->detailSheet($book, $consolidado, $consolidado['year'] ? __('Detalle por semestre') : __('Detalle por módulo'));
+
+        if ($consolidado['dropped'] !== []) {
+            $this->droppedSheet($book, $consolidado);
+        }
 
         return $this->save($book);
     }
@@ -109,7 +114,7 @@ class ConsolidadoExporter
         }
 
         $parts[] = match (true) {
-            $consolidado['both'] => 'dos semestres',
+            $consolidado['year'] => 'anual',
             $consolidado['view'] === 'm1' => 'modulo 1',
             $consolidado['view'] === 'm2' => 'modulo 2',
             default => '',
@@ -171,6 +176,11 @@ class ConsolidadoExporter
             $header[] = __('Grupo');
         }
 
+        // En el año, quién cursó el primer semestre; se filtra con un clic.
+        if ($c['year']) {
+            $header[] = __('Cursó :level', ['level' => $c['yearParts']['previous']]);
+        }
+
         $fixed = count($header);
 
         foreach ($c['columns'] as $column) {
@@ -192,6 +202,10 @@ class ConsolidadoExporter
 
             if ($c['showGroup']) {
                 $line[] = XlsxWriter::cell($row['group'], 'center');
+            }
+
+            if ($c['year']) {
+                $line[] = $row['took_previous'] ? XlsxWriter::cell(__('Sí'), 'center') : XlsxWriter::cell(__('No'), 'integer-fail');
             }
 
             foreach ($c['columns'] as $column) {
@@ -236,10 +250,18 @@ class ConsolidadoExporter
         $rows[] = [];
         $rows[] = [XlsxWriter::cell($this->legend(), 'muted')];
 
+        if ($c['year']) {
+            $rows[] = [XlsxWriter::cell($this->yearLegend($c), 'muted')];
+        }
+
         $widths = [5, 36, 14];
 
         if ($c['showGroup']) {
             $widths[] = 13;
+        }
+
+        if ($c['year']) {
+            $widths[] = 10;
         }
 
         $widths = [...$widths, ...array_fill(0, count($c['columns']), 12), 10, 12, 8, 8, 8];
@@ -341,8 +363,9 @@ class ConsolidadoExporter
         ];
 
         $header = [
-            __('Ciclo'), __('Estudiantes'), __('Promedio'), __('Desempeño'), __('Aprueban todo'),
-            __('Pierden 1'), __('Pierden 2'), __('Pierden 3 o más'), __('Notas que faltan'), __('Materia con más pérdidas'), __('Estado'),
+            __('Ciclo'), __('Se lee'), __('Estudiantes'), __('Promedio'), __('Desempeño'), __('Aprueban todo'),
+            __('Pierden 1'), __('Pierden 2'), __('Pierden 3 o más'), __('Notas que faltan'), __('Materia con más pérdidas'),
+            __('No siguieron del primer semestre'), __('Estado'),
         ];
         $headerRow = count($rows) + 1;
         $rows[] = array_map(fn (string $text) => XlsxWriter::cell($text, 'header'), $header);
@@ -353,6 +376,7 @@ class ConsolidadoExporter
 
             $rows[] = [
                 XlsxWriter::cell($c['cycle']->name, 'bold'),
+                XlsxWriter::cell($this->spanLabel($c), 'center'),
                 XlsxWriter::cell($summary['students'], 'integer'),
                 XlsxWriter::cell($summary['average'], $summary['average'] !== null && $summary['average'] < BoletinService::PASSING_SCORE ? 'score-fail' : 'bold-score'),
                 XlsxWriter::cell($summary['performance'], 'center'),
@@ -362,12 +386,16 @@ class ConsolidadoExporter
                 XlsxWriter::cell($summary['failing'][3], $summary['failing'][3] > 0 ? 'integer-fail' : 'integer'),
                 XlsxWriter::cell($summary['pending_cells'], 'integer'),
                 XlsxWriter::cell($hardest ? __(':name (:failed de :graded)', ['name' => $hardest['name'], 'failed' => $hardest['failed'], 'graded' => $hardest['graded']]) : '—', 'text'),
+                XlsxWriter::cell($c['year'] ? $summary['dropped'] : null, 'integer'),
                 XlsxWriter::cell($c['status']['label'], $c['status']['definitive'] ? 'center' : 'seal-provisional'),
             ];
         }
 
+        $rows[] = [];
+        $rows[] = [XlsxWriter::cell(__('En los ciclos de un año (3 y 4), el segundo semestre se lee con el año completo: la nota de cada materia es el promedio de los dos semestres.'), 'muted')];
+
         $book->addSheet(__('Resumen'), $rows, [
-            'widths' => [16, 12, 11, 12, 13, 11, 11, 13, 13, 34, 13],
+            'widths' => [16, 22, 12, 11, 12, 13, 11, 11, 13, 13, 34, 16, 13],
             'heights' => [$headerRow => 32],
             'freeze' => [1, $headerRow],
             'landscape' => true,
@@ -383,32 +411,57 @@ class ConsolidadoExporter
         $scope = $section['subject'].' · '.$data['scope'].($section['group'] ? ' · '.$section['group'] : '');
         $stats = $section['stats'];
 
+        $parts = $data['yearParts'];
+        $year = $section['year'];
+
         $summary = trans_choice('{1}:count estudiante|[0,*]:count estudiantes', $stats['students'], ['count' => $stats['students']])
             .' · '.__('promedio :avg', ['avg' => $this->number($stats['final'])])
             .' · '.__('aprueban :n', ['n' => $stats['passed']])
             .' · '.__('pierden :n', ['n' => $stats['failed']])
-            .($stats['pending'] > 0 ? ' · '.__('con nota incompleta :n', ['n' => $stats['pending']]) : '');
+            .($stats['pending'] > 0 ? ' · '.__('con nota incompleta :n', ['n' => $stats['pending']]) : '')
+            .($year ? ' · '.__('en el año: promedio :avg, pierden :n', ['avg' => $this->number($stats['year']), 'n' => $stats['year_failed']]) : '');
 
         $rows = $this->heading(__('Consolidado de :subject', ['subject' => $scope]), $data['status'], $summary);
         array_splice($rows, 2, 0, [[XlsxWriter::cell(__('Docente: :name', ['name' => $data['teacher']->name]), 'muted')]]);
 
+        // En orden: el primer semestre, los dos módulos de este, su definitiva y el año.
+        $header = $year
+            ? [__('N°'), __('Estudiante'), __('Documento'), __('Def. :level', ['level' => $parts['previous']]), __('Módulo 1'), __('Módulo 2'), __('Def. :level', ['level' => $parts['current']]), __('Año'), __('Desempeño del año'), __('Fallas')]
+            : [__('N°'), __('Estudiante'), __('Documento'), __('Módulo 1'), __('Módulo 2'), __('Definitiva'), __('Desempeño'), __('Fallas')];
+
         $headerRow = count($rows) + 1;
-        $rows[] = array_map(
-            fn (string $text) => XlsxWriter::cell($text, 'header'),
-            [__('N°'), __('Estudiante'), __('Documento'), __('Módulo 1'), __('Módulo 2'), __('Definitiva'), __('Desempeño'), __('Fallas')],
-        );
+        $rows[] = array_map(fn (string $text) => XlsxWriter::cell($text, 'header'), $header);
 
         foreach ($section['rows'] as $index => $row) {
-            $rows[] = [
+            $line = [
                 XlsxWriter::cell($index + 1, 'integer'),
                 XlsxWriter::cell($row['name'], 'text'),
                 XlsxWriter::cell($row['document'], 'center'),
+            ];
+
+            if ($year) {
+                $line[] = $row['took_previous']
+                    ? $this->plainScore($row['previous'])
+                    : XlsxWriter::cell(__('No cursó'), 'score-pending');
+            }
+
+            array_push(
+                $line,
                 $this->plainScore($row['m1']),
                 $this->plainScore($row['m2']),
                 $this->scoreCell(['score' => $row['final'], 'complete' => $row['complete'], 'failed' => $row['failed']]),
-                XlsxWriter::cell($row['performance'], 'center'),
-                XlsxWriter::cell($row['absences'], $row['lost_by_absence'] ? 'integer-fail' : 'integer'),
-            ];
+            );
+
+            if ($year) {
+                $line[] = $row['took_previous']
+                    ? $this->scoreCell(['score' => $row['year'], 'complete' => $row['year_complete'], 'failed' => $row['year_failed']])
+                    : XlsxWriter::cell(null, 'center');
+            }
+
+            $line[] = XlsxWriter::cell($row['performance'], 'center');
+            $line[] = XlsxWriter::cell($row['absences'], $row['lost_by_absence'] ? 'integer-fail' : 'integer');
+
+            $rows[] = $line;
         }
 
         $lastDataRow = count($rows);
@@ -417,18 +470,28 @@ class ConsolidadoExporter
             null,
             XlsxWriter::cell(__('Promedio'), 'bold'),
             null,
+            ...($year ? [XlsxWriter::cell($stats['previous'], 'bold-score')] : []),
             XlsxWriter::cell($stats['m1'], 'bold-score'),
             XlsxWriter::cell($stats['m2'], 'bold-score'),
             XlsxWriter::cell($stats['final'], 'bold-score'),
+            ...($year ? [XlsxWriter::cell($stats['year'], 'bold-score')] : []),
         ];
         $rows[] = [];
         $rows[] = [XlsxWriter::cell($this->legend(), 'muted')];
 
+        if ($year) {
+            $rows[] = [XlsxWriter::cell(__('Año: promedio de la definitiva de :first y la de :second. Se pierde por debajo de :score.', [
+                'first' => $parts['previous'],
+                'second' => $parts['current'],
+                'score' => number_format(BoletinService::PASSING_SCORE, 1),
+            ]), 'muted')];
+        }
+
         $book->addSheet(trim($section['subject'].' '.($section['group'] ?? '')), $rows, [
-            'widths' => [5, 36, 14, 11, 11, 11, 12, 8],
-            'heights' => [$headerRow => 20],
+            'widths' => $year ? [5, 36, 14, 11, 11, 11, 11, 10, 14, 8] : [5, 36, 14, 11, 11, 11, 12, 8],
+            'heights' => [$headerRow => $year ? 32 : 20],
             'freeze' => [2, $headerRow],
-            'filter' => 'A'.$headerRow.':H'.max($lastDataRow, $headerRow),
+            'filter' => 'A'.$headerRow.':'.XlsxWriter::column(count($header) - 1).max($lastDataRow, $headerRow),
         ]);
     }
 
@@ -473,7 +536,78 @@ class ConsolidadoExporter
             $parts[] = trans_choice('{1}falta :count nota|[0,*]faltan :count notas', $summary['pending_cells'], ['count' => $summary['pending_cells']]);
         }
 
+        if ($summary['without_previous'] > 0) {
+            $parts[] = __('sin el primer semestre: :n', ['n' => $summary['without_previous']]);
+        }
+
+        if ($summary['dropped'] > 0) {
+            $parts[] = __('no siguieron del primer semestre: :n', ['n' => $summary['dropped']]);
+        }
+
         return implode(' · ', $parts);
+    }
+
+    /**
+     * @param  array<string, mixed>  $c
+     */
+    private function yearLegend(array $c): string
+    {
+        return __('Nota del año: promedio de la definitiva de :first y la de :second. Quienes no cursaron :first van sin puesto y fuera de las cuentas del ciclo.', [
+            'first' => $c['yearParts']['previous'],
+            'second' => $c['yearParts']['current'],
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $c
+     */
+    private function spanLabel(array $c): string
+    {
+        return $c['year']
+            ? __('Año (:first + :second)', ['first' => $c['yearParts']['previous'], 'second' => $c['yearParts']['current']])
+            : __('Semestre');
+    }
+
+    /**
+     * Quienes cursaron el primer semestre y no aparecen en el segundo.
+     *
+     * @param  array<string, mixed>  $c
+     */
+    private function droppedSheet(XlsxWriter $book, array $c): void
+    {
+        $first = $c['yearParts']['previous'];
+        $second = $c['yearParts']['current'];
+
+        $rows = [
+            [XlsxWriter::cell(config('app.institution'), 'title')],
+            [XlsxWriter::cell(__('Cursaron :first y no siguieron en :second', ['first' => $first, 'second' => $second]).' · '.$c['scope'], 'subtitle')],
+            [XlsxWriter::cell(trans_choice('{1}1 estudiante|[0,*]:count estudiantes', count($c['dropped']), ['count' => count($c['dropped'])]), 'muted')],
+            [],
+        ];
+
+        $headerRow = count($rows) + 1;
+        $rows[] = array_map(
+            fn (string $text) => XlsxWriter::cell($text, 'header'),
+            [__('N°'), __('Estudiante'), __('Documento'), __('Grupo en :level', ['level' => $first]), __('Promedio en :level', ['level' => $first]), __('Perdió en :level', ['level' => $first])],
+        );
+
+        foreach ($c['dropped'] as $index => $student) {
+            $rows[] = [
+                XlsxWriter::cell($index + 1, 'integer'),
+                XlsxWriter::cell($student['name'], 'text'),
+                XlsxWriter::cell($student['document'], 'center'),
+                XlsxWriter::cell($student['group'], 'center'),
+                $this->plainScore($student['average'], bold: true),
+                XlsxWriter::cell($student['failed'], $student['failed'] > 0 ? 'integer-fail' : 'integer'),
+            ];
+        }
+
+        $book->addSheet(__('No siguieron en :level', ['level' => $second]), $rows, [
+            'widths' => [5, 36, 14, 14, 14, 12],
+            'heights' => [$headerRow => 32],
+            'freeze' => [2, $headerRow],
+            'filter' => 'A'.$headerRow.':F'.(count($rows)),
+        ]);
     }
 
     private function legend(): string

@@ -64,6 +64,7 @@
             <thead>
                 <tr>
                     <th class="name">Ciclo</th>
+                    <th>Se lee</th>
                     <th>Estudiantes</th>
                     <th>Promedio</th>
                     <th>Desempeño</th>
@@ -73,6 +74,7 @@
                     <th>Pierden 3 o más</th>
                     <th>Notas que faltan</th>
                     <th class="name">Materia con más pérdidas</th>
+                    <th>No siguieron del 1.er semestre</th>
                     <th>Estado</th>
                 </tr>
             </thead>
@@ -81,6 +83,7 @@
                     @php $s = $c['summary']; $hardest = $s['hardest'][0] ?? null; @endphp
                     <tr>
                         <td class="name strong">{{ $c['cycle']->name }}</td>
+                        <td>{{ $c['year'] ? "Año ({$c['yearParts']['previous']} + {$c['yearParts']['current']})" : 'Semestre' }}</td>
                         <td>{{ $s['students'] }}</td>
                         <td class="{{ $isFail($s['average']) ? 'fail' : 'strong' }}">{{ $num($s['average']) }}</td>
                         <td>{{ $s['performance'] ?? '—' }}</td>
@@ -90,17 +93,22 @@
                         <td class="{{ $s['failing'][3] > 0 ? 'fail' : '' }}">{{ $s['failing'][3] }}</td>
                         <td>{{ $s['pending_cells'] }}</td>
                         <td class="name">{{ $hardest ? "{$hardest['name']} ({$hardest['failed']} de {$hardest['graded']})" : '—' }}</td>
+                        <td>{{ $c['year'] ? $s['dropped'] : '' }}</td>
                         <td>{{ $c['status']['label'] }}</td>
                     </tr>
                 @endforeach
             </tbody>
         </table>
+
+        <div class="legend">
+            En los ciclos de un año (3 y 4), el segundo semestre se lee con el año completo: la nota de cada materia es el promedio de los dos semestres.
+        </div>
     @endif
 
     @foreach ($consolidados as $c)
         @php
             $s = $c['summary'];
-            $showPending = $s['pending_cells'] > 0;
+            $showPending = $s['pending_cells'] > 0 || $s['without_previous'] > 0;
         @endphp
 
         <div class="{{ $termLabel || ! $loop->first ? 'page-break' : '' }}">
@@ -111,6 +119,12 @@
                     <td style="width: 15%;">
                         <div class="kpi-label">Estudiantes</div>
                         <div class="kpi-value">{{ $s['students'] }}</div>
+                        @if ($s['without_previous'] > 0)
+                            <div class="kpi-note">{{ $s['without_previous'] }} sin {{ $c['yearParts']['previous'] }}</div>
+                        @endif
+                        @if ($s['dropped'] > 0)
+                            <div class="kpi-note">{{ $s['dropped'] }} de {{ $c['yearParts']['previous'] }} no siguieron</div>
+                        @endif
                         @if ($s['without_grades'] > 0)
                             <div class="kpi-note">{{ $s['without_grades'] }} sin notas</div>
                         @endif
@@ -123,7 +137,7 @@
                     <td style="width: 17%;">
                         <div class="kpi-label">Aprueban todo</div>
                         <div class="kpi-value">{{ $s['all_passed'] }}</div>
-                        <div class="kpi-note">de {{ $s['graded'] }} con notas</div>
+                        <div class="kpi-note">de {{ $s['graded'] }} {{ $c['year'] ? 'con los dos semestres' : 'con notas' }}</div>
                     </td>
                     <td style="width: 19%;">
                         <div class="kpi-label">Pierden alguna materia</div>
@@ -164,7 +178,12 @@
                     @foreach ($c['rows'] as $row)
                         <tr>
                             <td class="muted">{{ $loop->iteration }}</td>
-                            <td class="name">{{ $row['name'] }}</td>
+                            <td class="name">
+                                {{ $row['name'] }}
+                                @if ($c['year'] && ! $row['took_previous'])
+                                    <span style="color: #b45309; font-size: 7px;">· sin {{ $c['yearParts']['previous'] }}</span>
+                                @endif
+                            </td>
                             @if ($c['showGroup'])
                                 <td>{{ $row['group'] ?? '—' }}</td>
                             @endif
@@ -214,10 +233,44 @@
             <div class="legend">
                 En rojo, las notas por debajo de {{ number_format($passingScore, 1) }}.
                 @if ($showPending)
-                    En gris y cursiva, las que todavía no están completas porque falta la nota de algún módulo.
+                    En gris y cursiva, las que todavía no están completas porque falta la nota de algún módulo{{ $c['year'] ? ' o de algún semestre' : '' }}.
+                @endif
+                @if ($c['year'])
+                    Nota del año: promedio de la definitiva de {{ $c['yearParts']['previous'] }} y la de {{ $c['yearParts']['current'] }}.
+                    Quienes no cursaron {{ $c['yearParts']['previous'] }} van sin puesto y fuera de las cuentas del ciclo.
                 @endif
                 Generado el {{ now()->translatedFormat('j \d\e F \d\e Y, g:i a') }}
             </div>
+
+            @if ($c['dropped'] !== [])
+                <div style="page-break-inside: avoid; margin-top: 12px;">
+                    <div class="kpi-label" style="margin-bottom: 4px;">
+                        Cursaron {{ $c['yearParts']['previous'] }} y no siguieron en {{ $c['yearParts']['current'] }} ({{ count($c['dropped']) }})
+                    </div>
+                    <table class="grid" style="width: auto;">
+                        <thead>
+                            <tr>
+                                <th class="name">Estudiante</th>
+                                <th>Documento</th>
+                                <th>Grupo en {{ $c['yearParts']['previous'] }}</th>
+                                <th>Promedio en {{ $c['yearParts']['previous'] }}</th>
+                                <th>Perdió</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($c['dropped'] as $student)
+                                <tr>
+                                    <td class="name">{{ $student['name'] }}</td>
+                                    <td class="muted">{{ $student['document'] ?? '—' }}</td>
+                                    <td>{{ $student['group'] ?? '—' }}</td>
+                                    <td class="{{ $isFail($student['average']) ? 'fail' : 'strong' }}">{{ $num($student['average']) }}</td>
+                                    <td class="{{ $student['failed'] > 0 ? 'fail' : '' }}">{{ $student['failed'] }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
         </div>
     @endforeach
 </body>

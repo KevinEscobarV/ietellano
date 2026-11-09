@@ -32,23 +32,29 @@ class Consolidados extends Component
     #[Url(as: 'orden', except: 'nombre')]
     public string $sort = 'nombre';
 
-    #[Url(as: 'dos', except: false)]
-    public bool $bothSemesters = false;
+    /**
+     * En los ciclos que duran un año (3B, 4B) se entra por el año completo;
+     * "semestre" deja ver solo el segundo semestre, con sus módulos. En los
+     * demás ciclos no cambia nada.
+     */
+    #[Url(as: 'alcance', except: 'anio')]
+    public string $span = 'anio';
 
     /**
-     * Los dos semestres solo tienen definitiva: el M1 y el M2 de cada uno ya
-     * van promediados.
+     * El año solo tiene definitiva: el M1 y el M2 de cada semestre ya van
+     * promediados.
      */
-    public function updatedBothSemesters(): void
+    public function updatedSpan(): void
     {
-        if ($this->bothSemesters) {
+        if ($this->span !== 'semestre') {
+            $this->span = 'anio';
             $this->view = 'definitiva';
         }
     }
 
     protected function resetCycleSelection(): void
     {
-        $this->reset(['groupId', 'bothSemesters']);
+        $this->reset(['groupId', 'span']);
     }
 
     /**
@@ -63,13 +69,12 @@ class Consolidados extends Component
     {
         $data = $this->cycleBrowserData($term);
         $cycle = $data['selected'];
-        $hasPrevious = (bool) $cycle?->previous_cycle_id;
         $groups = $cycle ? $cycle->groups()->orderBy('name')->pluck('name', 'id') : collect();
 
         $consolidado = $cycle ? $service->forCycle(
             $cycle,
             $this->view,
-            $this->bothSemesters && $hasPrevious,
+            $this->span !== 'semestre',
             $this->groupId !== '' && $groups->has((int) $this->groupId) ? (int) $this->groupId : null,
             $this->sort,
         ) : null;
@@ -77,7 +82,6 @@ class Consolidados extends Component
         return view('livewire.admin.consolidados', [
             ...$data,
             'groups' => $groups,
-            'hasPrevious' => $hasPrevious,
             'consolidado' => $consolidado,
             'downloadParams' => $consolidado ? $this->downloadParams($consolidado) : [],
             'passingScore' => BoletinService::PASSING_SCORE,
@@ -96,7 +100,8 @@ class Consolidados extends Component
         return array_filter([
             'vista' => $consolidado['view'] !== 'definitiva' ? $consolidado['view'] : null,
             'grupo' => $consolidado['group']?->id,
-            'dos' => $consolidado['both'] ? 1 : null,
+            // El año es lo normal en 3B y 4B; solo se avisa cuando se pidió el semestre.
+            'alcance' => $consolidado['yearParts'] && ! $consolidado['year'] ? 'semestre' : null,
             'orden' => $consolidado['sort'] !== 'nombre' ? $consolidado['sort'] : null,
         ]);
     }

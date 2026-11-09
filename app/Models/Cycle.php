@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['code', 'level', 'semester', 'year', 'name', 'previous_cycle_id', 'starts_on', 'ends_on', 'class_weekday'])]
 class Cycle extends Model
@@ -151,6 +152,14 @@ class Cycle extends Model
     public function previousCycle(): BelongsTo
     {
         return $this->belongsTo(Cycle::class, 'previous_cycle_id');
+    }
+
+    /**
+     * El segundo semestre de un ciclo que dura un año: 3A sigue en 3B.
+     */
+    public function nextCycle(): HasOne
+    {
+        return $this->hasOne(Cycle::class, 'previous_cycle_id');
     }
 
     public function groups(): HasMany

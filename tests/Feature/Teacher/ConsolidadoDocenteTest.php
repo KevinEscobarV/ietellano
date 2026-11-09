@@ -158,6 +158,49 @@ it('una cuenta que no es de docente no entra', function () {
         ->assertForbidden();
 });
 
+it('en el segundo semestre de un ciclo de un año suma la definitiva del primero y la del año', function () {
+    $this->cycle->update(['level' => '1B', 'name' => 'Ciclo 1B']);
+    $previous = Cycle::create(['code' => 'C1A-2026-1', 'level' => '1A', 'semester' => 1, 'year' => 2026, 'name' => 'Ciclo 1A']);
+    $this->cycle->update(['previous_cycle_id' => $previous->id]);
+
+    $math = Subject::where('code', 'MAT')->first();
+    $earlier = collect([1, 2])->map(fn (int $period) => Course::create([
+        'code' => "MAT-1A-{$period}",
+        'cycle_id' => $previous->id,
+        'subject_id' => $math->id,
+        'period' => $period,
+    ]));
+
+    // Ana cursó 1A (2.0 y 2.0); Luis entró en 1B.
+    Enrollment::create(['student_id' => $this->ana->id, 'cycle_id' => $previous->id]);
+    $earlier->each(fn (Course $course) => Grade::create(['course_id' => $course->id, 'student_id' => $this->ana->id, 'score' => 2.0]));
+
+    $data = app(ConsolidadoService::class)->forTeacher($this->teacher, $this->cycle->fresh());
+    $section = $data['sections'][0];
+    [$ana, $luis] = $section['rows'];
+
+    expect($data['yearParts'])->toBe(['previous' => '1A', 'current' => '1B'])
+        ->and($section['year'])->toBeTrue()
+        // 1B: 3.5; 1A: 2.0; año: 2.75, que pierde.
+        ->and($ana)->toMatchArray(['final' => 3.5, 'took_previous' => true, 'previous' => 2.0, 'year' => 2.75, 'year_failed' => true, 'performance' => 'Bajo'])
+        ->and($luis)->toMatchArray(['took_previous' => false, 'previous' => null, 'year' => null])
+        ->and($section['stats'])->toMatchArray(['year' => 2.75, 'year_failed' => 1, 'without_previous' => 1]);
+
+    $response = $this->actingAs($this->user)
+        ->get(route('teacher.consolidado', ['cycle' => $this->cycle->id, 'formato' => 'xlsx']))
+        ->assertOk();
+
+    $path = $response->baseResponse->getFile()->getPathname();
+    $sheet = teacherSheets($path)['Matematicas Grupo A'];
+    unlink($path);
+
+    expect($sheet)->toContain('Def. 1B', 'Def. 1A', 'Año', 'No cursó', '<v>2.75</v>');
+
+    $this->actingAs($this->user)
+        ->get(route('teacher.consolidado', ['cycle' => $this->cycle->id, 'formato' => 'pdf']))
+        ->assertOk();
+});
+
 it('Mis materias ofrece el consolidado de cada ciclo', function () {
     Livewire::actingAs($this->user)
         ->test(MyCourses::class)

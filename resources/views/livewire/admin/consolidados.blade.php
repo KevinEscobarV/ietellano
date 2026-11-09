@@ -62,9 +62,47 @@
             </div>
         </div>
 
+        @php $parts = $consolidado['yearParts']; @endphp
+
+        {{-- La primera mitad de un ciclo de un año: el año se lee en la segunda. --}}
+        @if ($consolidado['continuesIn'])
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-200">
+                <div class="flex items-start gap-2">
+                    <flux:icon name="information-circle" class="mt-0.5 size-5 shrink-0" />
+                    <span>
+                        {{ __('Este ciclo dura un año y sigue en :next (:term). Aquí ves solo este semestre; el consolidado del año completo está en :next.', [
+                            'next' => $consolidado['continuesIn']->name,
+                            'term' => $consolidado['continuesIn']->year.'-'.$consolidado['continuesIn']->semester,
+                        ]) }}
+                    </span>
+                </div>
+                <flux:button size="sm" icon-trailing="arrow-right" wire:click="$set('cycleId', '{{ $consolidado['continuesIn']->id }}')">
+                    {{ __('Ver el año en :next', ['next' => $consolidado['continuesIn']->name]) }}
+                </flux:button>
+            </div>
+        @endif
+
         {{-- Qué se lee --}}
         <div class="mb-4 flex flex-wrap items-center gap-3" data-tour="views">
-            @unless ($consolidado['both'])
+            @if ($parts)
+                <div class="inline-flex rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800" role="group" aria-label="{{ __('Año o semestre') }}">
+                    @foreach (['anio' => __('Año completo (:first + :second)', ['first' => $parts['previous'], 'second' => $parts['current']]), 'semestre' => __('Solo :level', ['level' => $parts['current']])] as $value => $label)
+                        <button
+                            type="button"
+                            wire:key="span-{{ $value }}"
+                            wire:click="$set('span', '{{ $value }}')"
+                            aria-pressed="{{ $consolidado['year'] === ($value === 'anio') ? 'true' : 'false' }}"
+                            @class([
+                                'rounded-md px-3 py-1.5 text-sm font-medium transition',
+                                'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white' => $consolidado['year'] === ($value === 'anio'),
+                                'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white' => $consolidado['year'] !== ($value === 'anio'),
+                            ])
+                        >{{ $label }}</button>
+                    @endforeach
+                </div>
+            @endif
+
+            @unless ($consolidado['year'])
                 <div class="inline-flex rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800" role="group" aria-label="{{ __('Qué notas ver') }}">
                     @foreach ($views as $value => $label)
                         <button
@@ -99,11 +137,13 @@
                     <flux:select.option value="puesto">{{ __('Ordenar por puesto') }}</flux:select.option>
                 </flux:select>
             </div>
-
-            @if ($hasPrevious)
-                <flux:checkbox wire:model.live="bothSemesters" :label="__('Incluir el semestre anterior (dos semestres)')" />
-            @endif
         </div>
+
+        @if ($consolidado['year'])
+            <p class="-mt-2 mb-4 text-sm text-zinc-500 dark:text-zinc-400">
+                {{ __('La nota de cada materia es el promedio de la definitiva de :first y la de :second, la misma cuenta del certificado.', ['first' => $parts['previous'], 'second' => $parts['current']]) }}
+            </p>
+        @endif
 
         {{-- Sello --}}
         <div @class([
@@ -133,6 +173,9 @@
                     <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
                         <div class="text-xs font-medium uppercase tracking-wide text-zinc-500">{{ __('Estudiantes') }}</div>
                         <div class="mt-1 text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $s['students'] }}</div>
+                        @if ($s['without_previous'] > 0)
+                            <div class="mt-0.5 text-xs text-amber-700 dark:text-amber-300">{{ __(':n sin :level, van sin puesto', ['n' => $s['without_previous'], 'level' => $parts['previous']]) }}</div>
+                        @endif
                         @if ($s['without_grades'] > 0)
                             <div class="mt-0.5 text-xs text-zinc-500">{{ trans_choice('{1}1 sin notas todavía|[2,*]:count sin notas todavía', $s['without_grades'], ['count' => $s['without_grades']]) }}</div>
                         @endif
@@ -148,7 +191,13 @@
                         <div class="text-xs font-medium uppercase tracking-wide text-zinc-500">{{ __('Aprueban todo') }}</div>
                         <div class="mt-1 text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{{ $s['all_passed'] }}</div>
                         <div class="mt-0.5 text-xs text-zinc-500">
-                            {{ $s['graded'] > 0 ? __('de :n · :pct %', ['n' => $s['graded'], 'pct' => round($s['all_passed'] * 100 / $s['graded'])]) : __('Sin notas') }}
+                            @if ($s['graded'] === 0)
+                                {{ __('Sin notas') }}
+                            @elseif ($consolidado['year'])
+                                {{ __('de :n con los dos semestres · :pct %', ['n' => $s['graded'], 'pct' => round($s['all_passed'] * 100 / $s['graded'])]) }}
+                            @else
+                                {{ __('de :n · :pct %', ['n' => $s['graded'], 'pct' => round($s['all_passed'] * 100 / $s['graded'])]) }}
+                            @endif
                         </div>
                     </div>
 
@@ -224,6 +273,52 @@
                         </span>
                     </div>
                 @endif
+
+                @if ($consolidado['dropped'] !== [])
+                    <details class="group rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900" data-tour="dropped">
+                        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm">
+                            <span class="flex items-center gap-2">
+                                <flux:icon name="user-minus" class="size-4 text-zinc-400" />
+                                <span class="font-medium text-zinc-800 dark:text-zinc-200">
+                                    {{ trans_choice('{1}1 estudiante cursó :first y no siguió en :second|[2,*]:count estudiantes cursaron :first y no siguieron en :second', count($consolidado['dropped']), [
+                                        'count' => count($consolidado['dropped']),
+                                        'first' => $parts['previous'],
+                                        'second' => $parts['current'],
+                                    ]) }}
+                                </span>
+                            </span>
+                            <flux:icon name="chevron-down" class="size-4 shrink-0 text-zinc-400 transition group-open:rotate-180" />
+                        </summary>
+
+                        <div class="overflow-x-auto border-t border-zinc-100 dark:border-zinc-800">
+                            <table class="min-w-full text-sm">
+                                <thead class="text-xs text-zinc-500">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left font-medium">{{ __('Estudiante') }}</th>
+                                        <th class="px-2 py-2 text-left font-medium whitespace-nowrap">{{ __('Grupo en :level', ['level' => $parts['previous']]) }}</th>
+                                        <th class="px-2 py-2 text-center font-medium whitespace-nowrap">{{ __('Promedio en :level', ['level' => $parts['previous']]) }}</th>
+                                        <th class="px-2 py-2 text-center font-medium whitespace-nowrap">{{ __('Perdió') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                                    @foreach ($consolidado['dropped'] as $student)
+                                        <tr wire:key="dropped-{{ $student['id'] }}">
+                                            <td class="px-4 py-1.5">
+                                                <span class="text-zinc-800 dark:text-zinc-200">{{ $student['name'] }}</span>
+                                                @if ($student['document'])
+                                                    <span class="text-xs text-zinc-500">· {{ $student['document'] }}</span>
+                                                @endif
+                                            </td>
+                                            <td class="px-2 py-1.5 text-xs whitespace-nowrap text-zinc-500">{{ $student['group'] ?? '—' }}</td>
+                                            <td @class(['px-2 py-1.5 text-center font-semibold tabular-nums', 'text-red-600 dark:text-red-400' => $isFail($student['average']), 'text-zinc-800 dark:text-zinc-200' => ! $isFail($student['average'])])>{{ $num($student['average']) }}</td>
+                                            <td @class(['px-2 py-1.5 text-center tabular-nums', 'font-semibold text-red-600 dark:text-red-400' => $student['failed'] > 0, 'text-zinc-400' => $student['failed'] === 0])>{{ $student['failed'] }}</td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </details>
+                @endif
             </div>
 
             {{-- La tabla --}}
@@ -253,7 +348,12 @@
                         @foreach ($consolidado['rows'] as $row)
                             <tr wire:key="row-{{ $row['id'] }}" class="group bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800/60">
                                 <th scope="row" class="sticky left-0 z-10 bg-white px-3 py-2 text-left font-normal group-hover:bg-zinc-50 dark:bg-zinc-900 dark:group-hover:bg-zinc-800">
-                                    <div class="font-medium text-zinc-900 lg:whitespace-nowrap dark:text-zinc-100">{{ $row['name'] }}</div>
+                                    <div class="font-medium text-zinc-900 lg:whitespace-nowrap dark:text-zinc-100">
+                                        {{ $row['name'] }}
+                                        @if ($consolidado['year'] && ! $row['took_previous'])
+                                            <flux:badge size="sm" color="amber" class="ms-1 align-middle">{{ __('sin :level', ['level' => $parts['previous']]) }}</flux:badge>
+                                        @endif
+                                    </div>
                                     @if ($row['document'])
                                         <div class="text-xs text-zinc-500">{{ $row['document'] }}</div>
                                     @endif
@@ -303,11 +403,14 @@
 
             <p class="mt-2 text-xs text-zinc-500">
                 {{ __('En rojo, por debajo de :score.', ['score' => number_format($passingScore, 1)]) }}
-                @if ($s['pending_cells'] > 0)
+                @if ($s['pending_cells'] > 0 || $s['without_previous'] > 0)
                     {{ __('En gris y cursiva, notas incompletas.') }}
                 @endif
                 @if (collect($consolidado['columns'])->contains(fn ($column) => $column['components'] !== []))
                     {{ __('Las áreas promedian sus materias, como en el boletín.') }}
+                @endif
+                @if ($s['without_previous'] > 0)
+                    {{ __('Quienes no cursaron :level van sin puesto y fuera de las cuentas del ciclo.', ['level' => $parts['previous']]) }}
                 @endif
             </p>
         @endif
@@ -317,8 +420,9 @@
         ['target' => null, 'title' => __('Así se lee el consolidado'), 'body' => __('Las notas de todos los estudiantes de un ciclo en una tabla, con un resumen arriba. Puedes saltar esta guía y volver a verla con «¿Cómo funciona?».')],
         ['target' => 'term', 'title' => __('1. El semestre'), 'body' => __('Elige el año y el semestre. La pantalla abre en el más reciente.')],
         ['target' => 'cycles', 'title' => __('2. El ciclo'), 'body' => __('Cada tarjeta dice cómo está cada módulo. El consolidado es definitivo cuando los dos están cerrados; antes sale como provisional.')],
-        ['target' => 'views', 'title' => __('Qué notas ver'), 'body' => __('«Definitiva» es el promedio de los dos módulos, la misma del boletín. Con «Módulo 1» o «Módulo 2» ves solo ese: sirve para leer el M1 apenas se cierre. También puedes filtrar por grupo y ordenar por puesto.')],
+        ['target' => 'views', 'title' => __('Qué notas ver'), 'body' => __('«Definitiva» es el promedio de los dos módulos, la misma del boletín. Con «Módulo 1» o «Módulo 2» ves solo ese: sirve para leer el M1 apenas se cierre. Los ciclos 3 y 4 duran un año: en 3B y 4B se abre el año completo, con el promedio de los dos semestres. También puedes filtrar por grupo y ordenar por puesto.')],
         ['target' => 'summary', 'title' => __('La lectura rápida'), 'body' => __('El promedio del ciclo, cuántos aprueban todo, cuántos pierden 1, 2 o 3 materias o más, y las materias donde más se pierde.')],
+        ['target' => 'dropped', 'title' => __('Los que no siguieron'), 'body' => __('En el año completo, aquí está la lista de quienes cursaron el primer semestre y no aparecen en el segundo, con su promedio de allá.')],
         ['target' => 'table', 'title' => __('Estudiante por estudiante'), 'body' => __('En rojo, las notas por debajo de 3.0; en gris, las que todavía están incompletas. Abajo, el promedio de cada materia y cuántos la aprueban y la pierden.')],
         ['target' => 'downloads', 'title' => __('Excel o PDF'), 'body' => __('Se descarga lo que estás viendo. El Excel trae filtros y una hoja con la nota de cada módulo; el PDF es para imprimir o archivar.')],
         ['target' => 'term-download', 'title' => __('Todo el semestre'), 'body' => __('Saca todos los ciclos juntos: en Excel, una hoja de resumen y una por ciclo; en PDF, una página por ciclo.')],

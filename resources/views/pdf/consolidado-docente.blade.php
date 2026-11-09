@@ -44,7 +44,10 @@
 </head>
 <body>
     @foreach ($data['sections'] as $section)
-        @php $stats = $section['stats']; @endphp
+        @php
+            $stats = $section['stats'];
+            $parts = $data['yearParts'];
+        @endphp
 
         <div class="{{ $loop->first ? '' : 'page-break' }}">
             @include('pdf.partials.consolidado-header', [
@@ -62,6 +65,13 @@
                 @if ($stats['pending'] > 0)
                     · con nota incompleta <b>{{ $stats['pending'] }}</b>
                 @endif
+                @if ($section['year'])
+                    <br>En el año: promedio <b>{{ $num($stats['year']) }}</b> ·
+                    pierden <b class="{{ $stats['year_failed'] > 0 ? 'fail' : '' }}">{{ $stats['year_failed'] }}</b>
+                    @if ($stats['without_previous'] > 0)
+                        · sin {{ $parts['previous'] }} <b>{{ $stats['without_previous'] }}</b>
+                    @endif
+                @endif
             </div>
 
             <table class="grid">
@@ -69,12 +79,21 @@
                     <tr>
                         <th style="width: 20px;">N°</th>
                         <th class="name">Estudiante</th>
-                        <th style="width: 80px;">Documento</th>
-                        <th style="width: 52px;">Módulo 1</th>
-                        <th style="width: 52px;">Módulo 2</th>
-                        <th style="width: 56px;">Definitiva</th>
-                        <th style="width: 64px;">Desempeño</th>
-                        <th style="width: 40px;">Fallas</th>
+                        <th style="width: 72px;">Documento</th>
+                        @if ($section['year'])
+                            <th style="width: 50px;">Def. {{ $parts['previous'] }}</th>
+                        @endif
+                        <th style="width: 46px;">Módulo 1</th>
+                        <th style="width: 46px;">Módulo 2</th>
+                        @if ($section['year'])
+                            <th style="width: 50px;">Def. {{ $parts['current'] }}</th>
+                            <th style="width: 46px;">Año</th>
+                            <th style="width: 60px;">Desempeño del año</th>
+                        @else
+                            <th style="width: 56px;">Definitiva</th>
+                            <th style="width: 64px;">Desempeño</th>
+                        @endif
+                        <th style="width: 36px;">Fallas</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -83,9 +102,23 @@
                             <td class="muted">{{ $loop->iteration }}</td>
                             <td class="name">{{ $row['name'] }}</td>
                             <td class="muted">{{ $row['document'] ?? '—' }}</td>
+                            @if ($section['year'])
+                                @if ($row['took_previous'])
+                                    <td class="{{ $isFail($row['previous']) ? 'fail' : '' }}">{{ $num($row['previous']) }}</td>
+                                @else
+                                    <td class="pending">No cursó</td>
+                                @endif
+                            @endif
                             <td class="{{ $isFail($row['m1']) ? 'fail' : '' }}">{{ $num($row['m1']) }}</td>
                             <td class="{{ $isFail($row['m2']) ? 'fail' : '' }}">{{ $num($row['m2']) }}</td>
                             <td class="strong {{ $row['failed'] ? 'fail' : '' }} {{ $row['complete'] ? '' : 'pending' }}">{{ $num($row['final']) }}</td>
+                            @if ($section['year'])
+                                @if ($row['took_previous'])
+                                    <td class="strong {{ $row['year_failed'] ? 'fail' : '' }} {{ $row['year_complete'] ? '' : 'pending' }}">{{ $num($row['year']) }}</td>
+                                @else
+                                    <td></td>
+                                @endif
+                            @endif
                             <td>{{ $row['performance'] ?? '—' }}</td>
                             <td class="{{ $row['lost_by_absence'] ? 'fail' : '' }}">{{ $row['absences'] }}</td>
                         </tr>
@@ -95,9 +128,15 @@
                         <td></td>
                         <td class="name">Promedio</td>
                         <td></td>
+                        @if ($section['year'])
+                            <td>{{ $num($stats['previous']) }}</td>
+                        @endif
                         <td>{{ $num($stats['m1']) }}</td>
                         <td>{{ $num($stats['m2']) }}</td>
                         <td>{{ $num($stats['final']) }}</td>
+                        @if ($section['year'])
+                            <td>{{ $num($stats['year']) }}</td>
+                        @endif
                         <td></td>
                         <td></td>
                     </tr>
@@ -106,7 +145,10 @@
 
             <div class="legend">
                 En rojo, las notas por debajo de {{ number_format($passingScore, 1) }} y las fallas por encima del tope.
-                En gris y cursiva, la definitiva incompleta porque falta la nota de algún módulo.
+                En gris y cursiva, la nota incompleta porque falta la de algún módulo.
+                @if ($section['year'])
+                    Año: promedio de la definitiva de {{ $parts['previous'] }} y la de {{ $parts['current'] }}.
+                @endif
                 Generado el {{ now()->translatedFormat('j \d\e F \d\e Y, g:i a') }}
             </div>
         </div>
