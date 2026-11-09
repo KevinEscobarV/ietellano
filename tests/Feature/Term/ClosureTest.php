@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\AttendanceStatus;
+use App\Livewire\Admin\GradeEditor;
 use App\Livewire\Admin\Teachers;
 use App\Livewire\Admin\TermClosure;
 use App\Livewire\Settings\DeleteUserForm;
@@ -74,7 +75,7 @@ beforeEach(function () {
 
     $this->session = ClassSession::create(['cycle_id' => $this->cycle->id, 'date' => '2026-02-07']);
 
-    $this->close = fn () => $this->cycle->update(['closed_at' => now()]);
+    $this->close = fn () => $this->cycle->close();
 
     $this->putScore = fn () => Livewire::actingAs($this->user)
         ->test(Gradebook::class, ['course' => $this->course])
@@ -129,7 +130,7 @@ describe('semestre cerrado', function () {
 
         Livewire::actingAs($this->user)
             ->test(Gradebook::class, ['course' => $this->course])
-            ->assertSee('Este semestre está cerrado')
+            ->assertSee('El Módulo 1 está cerrado')
             ->assertDontSee('Guardar todo');
     });
 
@@ -138,16 +139,18 @@ describe('semestre cerrado', function () {
         $admin->assignRole('admin');
 
         $panel = Livewire::actingAs($admin)->test(TermClosure::class)
-            ->call('confirm', 'close', $this->cycle->id)
+            ->call('confirmModule', 'close', 1, $this->cycle->id)
             ->assertSet('showConfirmModal', true)
-            // El aviso dice sobre qué semestre es, que un confirm del navegador no podía.
-            ->assertSee($this->cycle->label);
+            // El aviso dice sobre qué módulo y qué ciclo es, que un confirm del navegador no podía.
+            ->assertSee('Módulo 1 · Ciclo 5');
 
-        expect($this->cycle->refresh()->isClosed())->toBeFalse();
+        expect($this->cycle->refresh()->isModuleClosed(1))->toBeFalse();
 
         $panel->call('confirmed');
 
-        expect($this->cycle->refresh()->isClosed())->toBeTrue();
+        expect($this->cycle->refresh()->isModuleClosed(1))->toBeTrue();
+
+        ($this->putScore)()->assertForbidden();
     });
 
     it('un día sin asistencia no se lee como si todos hubieran ido', function () {
@@ -166,13 +169,195 @@ describe('semestre cerrado', function () {
         $admin = User::factory()->create();
         $admin->assignRole('admin');
 
-        Livewire::actingAs($admin)->test(TermClosure::class)->call('reopenCycle', $this->cycle->id);
+        Livewire::actingAs($admin)->test(TermClosure::class)->call('reopenModule', 1, $this->cycle->id);
 
-        expect($this->cycle->refresh()->isClosed())->toBeFalse();
+        expect($this->cycle->refresh()->isModuleClosed(1))->toBeFalse()
+            ->and($this->cycle->isClosed())->toBeFalse();
 
         ($this->putScore)();
 
         expect(Grade::count())->toBe(1);
+    });
+});
+
+describe('cierre por módulo', function () {
+    beforeEach(function () {
+        $this->admin = User::factory()->create();
+        $this->admin->assignRole('admin');
+
+        // La misma materia en el Módulo 2, con el mismo docente.
+        $this->courseTwo = Course::create([
+            'code' => 'C5MATM2S12026',
+            'cycle_id' => $this->cycle->id,
+            'subject_id' => $this->course->subject_id,
+            'group_id' => $this->group->id,
+            'teacher_id' => $this->teacher->id,
+            'period' => 2,
+        ]);
+
+        $this->putScoreTwo = fn () => Livewire::actingAs($this->user)
+            ->test(Gradebook::class, ['course' => $this->courseTwo])
+            ->set("scores.{$this->student->id}", '3.5');
+    });
+
+    it('cerrar el Módulo 1 deja el Módulo 2 abierto', function () {
+        $this->cycle->closeModule(1);
+
+        ($this->putScore)()->assertForbidden();
+        ($this->putScoreTwo)()->assertHasNoErrors();
+
+        expect(Grade::where('course_id', $this->courseTwo->id)->exists())->toBeTrue()
+            ->and(Grade::where('course_id', $this->course->id)->exists())->toBeFalse();
+    });
+
+    it('el semestre queda cerrado solo cuando lo están los dos módulos', function () {
+        $this->cycle->closeModule(1);
+
+        expect($this->cycle->isClosed())->toBeFalse();
+
+        $this->cycle->closeModule(2);
+
+        expect($this->cycle->isClosed())->toBeTrue()
+            ->and($this->cycle->closedAt())->not->toBeNull();
+    });
+
+    it('volver a cerrar un módulo cerrado conserva su fecha', function () {
+        $this->travelTo(now()->subWeek());
+        $this->cycle->closeModule(1);
+        $this->travelBack();
+
+        $closedOn = $this->cycle->closureFor(1)->closes_at;
+
+        $this->cycle->close();
+
+        expect($this->cycle->closureFor(1)->closes_at->equalTo($closedOn))->toBeTrue();
+    });
+
+    it('un cierre programado deja escribir hasta la hora y se cumple solo', function () {
+        $closesAt = now()->addDay()->setTime(18, 0);
+        $this->cycle->scheduleModuleClosure(1, $closesAt);
+
+        Livewire::actingAs($this->user)
+            ->test(Gradebook::class, ['course' => $this->course])
+            ->assertSee('El Módulo 1 se cierra el')
+            ->set("scores.{$this->student->id}", '4.5')
+            ->assertHasNoErrors();
+
+        $this->travelTo($closesAt->copy()->addMinute());
+
+        ($this->putScore)()->assertForbidden();
+
+        expect((float) Grade::where('course_id', $this->course->id)->value('score'))->toBe(4.5);
+    });
+
+    it('cerrar ahora vence las ventanas de ese módulo, no las del otro', function () {
+        $deUno = EditWindow::create(['cycle_id' => $this->cycle->id, 'course_id' => $this->course->id, 'period' => 1, 'closes_at' => now()->addWeek()]);
+        $moduloUno = EditWindow::create(['cycle_id' => $this->cycle->id, 'period' => 1, 'closes_at' => now()->addWeek()]);
+        $deDos = EditWindow::create(['cycle_id' => $this->cycle->id, 'course_id' => $this->courseTwo->id, 'period' => 2, 'closes_at' => now()->addWeek()]);
+
+        $this->cycle->closeModule(1);
+
+        expect($deUno->refresh()->isActive())->toBeFalse()
+            ->and($moduloUno->refresh()->isActive())->toBeFalse()
+            ->and($deDos->refresh()->isActive())->toBeTrue();
+
+        ($this->putScore)()->assertForbidden();
+    });
+
+    it('una ventana de módulo abre ese módulo y no el otro', function () {
+        $this->cycle->close();
+
+        EditWindow::create(['cycle_id' => $this->cycle->id, 'period' => 2, 'closes_at' => now()->addDay()]);
+
+        ($this->putScore)()->assertForbidden();
+        ($this->putScoreTwo)()->assertHasNoErrors();
+    });
+
+    it('el panel cierra un módulo en todos los ciclos del semestre y en ningún otro', function () {
+        $otroCiclo = Cycle::create(['code' => 'C6-2026-1', 'level' => '6', 'semester' => 1, 'year' => 2026, 'name' => 'Ciclo 6']);
+        $otroSemestre = Cycle::create(['code' => 'C5-2025-2', 'level' => '5', 'semester' => 2, 'year' => 2025, 'name' => 'Ciclo 5']);
+
+        Livewire::actingAs($this->admin)->test(TermClosure::class)
+            ->set('term', '2026-1')
+            ->call('confirmModule', 'close', 1)
+            ->assertSee('Módulo 1 · Ciclo 5, Ciclo 6')
+            ->call('confirmed');
+
+        expect($this->cycle->refresh()->isModuleClosed(1))->toBeTrue()
+            ->and($otroCiclo->refresh()->isModuleClosed(1))->toBeTrue()
+            ->and($this->cycle->isModuleClosed(2))->toBeFalse()
+            ->and($otroSemestre->refresh()->isModuleClosed(1))->toBeFalse();
+    });
+
+    it('al cerrar avisa cuántas notas faltan', function () {
+        Livewire::actingAs($this->admin)->test(TermClosure::class)
+            ->call('confirmModule', 'close', 2)
+            ->assertSee('Todavía falta 1 nota por poner.');
+    });
+
+    it('el panel programa el cierre y el docente ve la fecha', function () {
+        $closesAt = now()->addDays(5)->setTime(18, 0);
+
+        Livewire::actingAs($this->admin)->test(TermClosure::class)
+            ->call('openScheduleForm', 2)
+            ->set('scheduleAt', $closesAt->format('Y-m-d\TH:i'))
+            ->call('scheduleClosure')
+            ->assertHasNoErrors()
+            ->assertSee('Se cierra el '.$closesAt->translatedFormat('j \d\e F'));
+
+        expect($this->cycle->refresh()->closureFor(2)->closes_at->equalTo($closesAt))->toBeTrue()
+            ->and($this->cycle->isModuleClosed(2))->toBeFalse();
+
+        Livewire::actingAs($this->user)
+            ->test(Gradebook::class, ['course' => $this->courseTwo])
+            ->assertSee('El Módulo 2 se cierra el');
+    });
+
+    it('programar no reabre un módulo que ya estaba cerrado', function () {
+        $this->cycle->closeModule(1);
+
+        Livewire::actingAs($this->admin)->test(TermClosure::class)
+            ->call('openScheduleForm', 1)
+            ->set('scheduleAt', now()->addDays(5)->format('Y-m-d\TH:i'))
+            ->call('scheduleClosure');
+
+        expect($this->cycle->refresh()->isModuleClosed(1))->toBeTrue();
+    });
+
+    it('no programa una fecha que ya pasó', function () {
+        Livewire::actingAs($this->admin)->test(TermClosure::class)
+            ->call('openScheduleForm', 1)
+            ->set('scheduleAt', now()->subHour()->format('Y-m-d\TH:i'))
+            ->call('scheduleClosure')
+            ->assertHasErrors('scheduleAt');
+
+        expect($this->cycle->refresh()->closureFor(1))->toBeNull();
+    });
+
+    it('la lista deja a la vista las ventanas vigentes y pliega las vencidas', function () {
+        EditWindow::create(['cycle_id' => $this->cycle->id, 'course_id' => $this->course->id, 'period' => 1, 'closes_at' => now()->addDay(), 'note' => 'Vigente']);
+        EditWindow::create(['cycle_id' => $this->cycle->id, 'period' => 2, 'closes_at' => now()->subDay(), 'note' => 'Vencida']);
+
+        Livewire::actingAs($this->admin)->test(TermClosure::class)
+            ->assertViewHas('active', fn ($active) => $active->pluck('note')->all() === ['Vigente'])
+            ->assertViewHas('expiredCount', 1)
+            ->assertSee('1 ventana vencida')
+            ->assertSee('Todo el Módulo 2');
+    });
+
+    it('no acepta un módulo que no existe', function () {
+        Livewire::actingAs($this->admin)->test(TermClosure::class)
+            ->call('confirmModule', 'close', 3)
+            ->assertNotFound();
+    });
+
+    it('el editor de notas muestra cada módulo con su estado', function () {
+        $this->cycle->closeModule(1);
+        $this->cycle->scheduleModuleClosure(2, now()->addDays(3));
+
+        Livewire::actingAs($this->admin)->test(GradeEditor::class)
+            ->assertSee('M1 cerrado')
+            ->assertSee('M2 hasta el');
     });
 });
 

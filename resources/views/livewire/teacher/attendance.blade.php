@@ -47,7 +47,7 @@
         </div>
     </div>
 
-    <x-term-notice :editable="$this->editable" :until="$this->openUntil" />
+    <x-term-notice :editable="$this->editable" :until="$this->openUntil" :closed="$this->moduleClosed" :module="$course->period" />
 
     @if ($sessions->isEmpty())
         <div class="{{ $card }} p-8 text-center">

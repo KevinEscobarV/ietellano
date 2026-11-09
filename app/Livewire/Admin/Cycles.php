@@ -86,6 +86,7 @@ class Cycles extends Component
     public function render(): View
     {
         $cycles = Cycle::query()
+            ->with('moduleClosures')
             ->withCount(['students', 'groups', 'courses'])
             ->ordered()
             ->paginate(10);

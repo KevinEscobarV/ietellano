@@ -50,7 +50,7 @@
                         {{ __('Editar notas') }}
                     </flux:sidebar.item>
                     <flux:sidebar.item icon="lock-closed" :href="route('admin.closure')" :current="request()->routeIs('admin.closure')" wire:navigate>
-                        {{ __('Cierre de semestre') }}
+                        {{ __('Cierre de módulos') }}
                     </flux:sidebar.item>
                 </flux:sidebar.group>
 

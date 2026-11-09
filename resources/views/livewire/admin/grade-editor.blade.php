@@ -71,23 +71,18 @@
                             'border-zinc-200 hover:border-zinc-300 hover:shadow-sm dark:border-zinc-700 dark:hover:border-zinc-600' => ! $active,
                         ])
                     >
-                        <div class="flex items-start justify-between gap-2">
-                            <div>
-                                <div class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $card['name'] }}</div>
-                                <div class="text-xs text-zinc-500">
-                                    {{ trans_choice('{1}:count estudiante|[2,*]:count estudiantes', $card['students'], ['count' => $card['students']]) }}
-                                </div>
+                        <div>
+                            <div class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $card['name'] }}</div>
+                            <div class="text-xs text-zinc-500">
+                                {{ trans_choice('{1}:count estudiante|[2,*]:count estudiantes', $card['students'], ['count' => $card['students']]) }}
                             </div>
+                        </div>
 
-                            @if ($card['closed'] && $card['window_until'])
-                                <flux:tooltip :content="__('Cerrado, con ventana de edición hasta el :date', ['date' => $card['window_until']->translatedFormat('j \d\e F, g:i a')])">
-                                    <flux:badge size="sm" color="amber" icon="clock">{{ $card['window_until']->translatedFormat('j M') }}</flux:badge>
-                                </flux:tooltip>
-                            @elseif ($card['closed'])
-                                <flux:badge size="sm" color="zinc" icon="lock-closed">{{ __('Cerrado') }}</flux:badge>
-                            @else
-                                <flux:badge size="sm" color="emerald">{{ __('Abierto') }}</flux:badge>
-                            @endif
+                        {{-- Un sello por módulo: es lo que dice si el docente todavía puede escribir. --}}
+                        <div class="flex flex-wrap gap-1.5">
+                            @foreach ($card['modules'] as $n => $module)
+                                <x-module-status :module="$n" :state="$module['state']" :at="$module['at']" />
+                            @endforeach
                         </div>
 
                         <div>
@@ -277,7 +272,7 @@
     <x-tour name="editor-notas" :autostart="$startTour" :steps="[
         ['target' => null, 'title' => __('Así se editan las notas'), 'body' => __('En tres pasos llegas a la planilla de cualquier curso. Puedes saltar esta guía y volver a verla con «¿Cómo funciona?».')],
         ['target' => 'term', 'title' => __('1. El semestre'), 'body' => __('Elige el año y el semestre. La pantalla abre en el más reciente.')],
-        ['target' => 'cycles', 'title' => __('2. El ciclo'), 'body' => __('Cada tarjeta muestra cuántas notas van puestas y si el semestre está abierto o cerrado para los docentes. Haz clic para cambiar de ciclo.')],
+        ['target' => 'cycles', 'title' => __('2. El ciclo'), 'body' => __('Cada tarjeta muestra cuántas notas van puestas y cómo está cada módulo para los docentes: M1 y M2 abiertos, cerrados o con fecha de cierre. Haz clic para cambiar de ciclo.')],
         ['target' => 'course-filters', 'title' => __('Filtra las materias'), 'body' => __('Por módulo, por grupo o por el nombre de la materia o del docente. «Con pendientes» deja solo las que todavía tienen notas por poner.')],
         ['target' => 'course', 'title' => __('3. Abre la planilla'), 'body' => __('La tarjeta dice quién dicta la materia, cuánto lleva y si el docente todavía puede editar. Haz clic para ver y corregir las notas: tú puedes editar aunque el semestre esté cerrado.')],
         ['target' => 'help', 'title' => __('¿Dudas? Vuelve aquí'), 'body' => __('Este botón abre otra vez esta guía.')],

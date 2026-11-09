@@ -75,23 +75,30 @@
         @if ($byCoordination)
             {{-- La coordinación escribe siempre; lo que necesita saber es si el
                  docente todavía puede o si está corrigiendo algo ya entregado. --}}
-            @if ($cycleClosed)
+            @if ($this->moduleClosed)
                 <div class="mb-4 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-500/40 dark:bg-amber-500/10">
                     <flux:icon name="shield-check" class="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
                     <div>
                         <div class="text-sm font-medium text-amber-900 dark:text-amber-200">{{ __('Estás corrigiendo como coordinación') }}</div>
                         <p class="mt-0.5 text-sm text-amber-800 dark:text-amber-300">
                             @if ($this->openUntil !== null)
-                                {{ __('El semestre está cerrado, pero el docente tiene una ventana de edición hasta el :date. Los dos pueden escribir en esta planilla.', ['date' => $this->openUntil->translatedFormat('j \d\e F, g:i a')]) }}
+                                {{ __('El Módulo :n está cerrado, pero el docente tiene una ventana de edición hasta el :date. Los dos pueden escribir en esta planilla.', ['n' => $course->period, 'date' => $this->openUntil->translatedFormat('j \d\e F, g:i a')]) }}
                             @else
-                                {{ __('El semestre está cerrado y el docente ya no puede editar. Tus cambios se guardan igual, al salir de cada casilla.') }}
+                                {{ __('El Módulo :n está cerrado y el docente ya no puede editar. Tus cambios se guardan igual, al salir de cada casilla.', ['n' => $course->period]) }}
                             @endif
                         </p>
                     </div>
                 </div>
+            @elseif ($this->openUntil !== null)
+                <div class="mb-4 flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-500/30 dark:bg-sky-500/10">
+                    <flux:icon name="calendar" class="mt-0.5 size-5 shrink-0 text-sky-600 dark:text-sky-400" />
+                    <p class="text-sm text-sky-900 dark:text-sky-200">
+                        {{ __('El Módulo :n se cierra solo el :date; hasta esa hora el docente puede editar y después, solo la coordinación.', ['n' => $course->period, 'date' => $this->openUntil->translatedFormat('j \d\e F, g:i a')]) }}
+                    </p>
+                </div>
             @endif
         @else
-            <x-term-notice :editable="$this->editable" :until="$this->openUntil" />
+            <x-term-notice :editable="$this->editable" :until="$this->openUntil" :closed="$this->moduleClosed" :module="$course->period" />
         @endif
     </div>
 

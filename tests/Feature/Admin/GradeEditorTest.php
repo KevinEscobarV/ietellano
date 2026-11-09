@@ -26,7 +26,8 @@ beforeEach(function () {
     $this->previous = Cycle::create(['code' => 'Ciclo4AS12026', 'level' => '4A', 'semester' => 1, 'year' => 2026, 'name' => 'Ciclo 4A']);
 
     // El semestre en curso, ya cerrado para los docentes.
-    $this->cycle = Cycle::create(['code' => 'Ciclo5S22026', 'level' => '5', 'semester' => 2, 'year' => 2026, 'name' => 'Ciclo 5', 'closed_at' => now()]);
+    $this->cycle = Cycle::create(['code' => 'Ciclo5S22026', 'level' => '5', 'semester' => 2, 'year' => 2026, 'name' => 'Ciclo 5']);
+    $this->cycle->close();
     $this->groupOne = Group::create(['cycle_id' => $this->cycle->id, 'name' => 'Ciclo 5-1']);
     $this->groupTwo = Group::create(['cycle_id' => $this->cycle->id, 'name' => 'Ciclo 5-2']);
 

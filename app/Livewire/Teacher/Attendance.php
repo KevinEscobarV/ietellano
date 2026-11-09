@@ -118,6 +118,12 @@ class Attendance extends Component
         return app(TermService::class)->openUntil($this->course);
     }
 
+    #[Computed]
+    public function moduleClosed(): bool
+    {
+        return app(TermService::class)->isCourseClosed($this->course);
+    }
+
     private function persist(): void
     {
         $session = $this->session();

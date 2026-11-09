@@ -18,8 +18,8 @@ beforeEach(function () {
         'semester' => 1,
         'year' => 2026,
         'name' => 'Ciclo 5',
-        'closed_at' => now(),
     ]);
+    $this->cycle->close();
 
     $this->group = Group::create(['cycle_id' => $this->cycle->id, 'name' => 'Ciclo 5-1', 'code' => 'G1']);
 
@@ -172,7 +172,7 @@ it('arma la página completa del boletín', function () {
 });
 
 it('avisa que el semestre sigue en curso', function () {
-    $this->cycle->update(['closed_at' => null]);
+    $this->cycle->reopen();
 
     session([Boletin::SESSION_KEY => $this->student->id]);
 

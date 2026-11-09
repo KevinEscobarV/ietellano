@@ -100,12 +100,22 @@ class Gradebook extends Component
     }
 
     /**
-     * Hasta cuándo dura el permiso de un semestre cerrado, para avisarlo.
+     * Hasta cuándo se puede escribir, para avisarlo: la ventana de un módulo
+     * cerrado o el cierre programado de uno abierto.
      */
     #[Computed]
     public function openUntil(): ?CarbonInterface
     {
         return app(TermService::class)->openUntil($this->course);
+    }
+
+    /**
+     * Si el módulo de la materia ya cerró, aunque haya una ventana encima.
+     */
+    #[Computed]
+    public function moduleClosed(): bool
+    {
+        return app(TermService::class)->isCourseClosed($this->course);
     }
 
     private function pageTitle(): string
@@ -288,7 +298,6 @@ class Gradebook extends Component
             'summary' => $this->summary(),
             'back' => $this->backLink(),
             'byCoordination' => $this->managedByCoordination(),
-            'cycleClosed' => app(TermService::class)->isClosed($this->course->cycle_id),
             'startTour' => $this->shouldStartTutorial('planilla'),
         ])->title($this->pageTitle());
     }

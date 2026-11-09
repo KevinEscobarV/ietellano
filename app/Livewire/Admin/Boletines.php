@@ -2,57 +2,54 @@
 
 namespace App\Livewire\Admin;
 
-use App\Models\Cycle;
-use App\Models\Student;
+use App\Concerns\BrowsesStudentsByTerm;
+use App\Concerns\ShowsTutorials;
 use App\Services\BoletinService;
+use App\Services\TermService;
 use Illuminate\View\View;
 use Livewire\Attributes\Title;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 
+/**
+ * Los boletines se buscan como las notas: semestre, ciclo y estudiante. La
+ * lista dice de una vez a quién le faltan notas, así se sabe si el boletín
+ * sale completo antes de abrirlo.
+ */
 #[Title('Boletines')]
 class Boletines extends Component
 {
-    public ?string $cycleId = '';
+    use BrowsesStudentsByTerm;
+    use ShowsTutorials;
 
-    public ?string $studentId = '';
-
+    #[Url(as: 'dos', except: false)]
     public bool $bothSemesters = false;
 
-    public function updatedCycleId(): void
+    protected function resetStudent(): void
     {
-        $this->studentId = '';
-        $this->bothSemesters = false;
+        $this->reset(['studentId', 'groupId', 'search', 'bothSemesters']);
     }
 
-    public function render(BoletinService $service): View
+    /**
+     * @return list<string>
+     */
+    protected function tutorials(): array
     {
-        $cycles = Cycle::ordered()->get();
+        return ['boletines'];
+    }
 
-        $students = $this->cycleId
-            ? Student::query()
-                ->whereRelation('enrollments', 'cycle_id', $this->cycleId)
-                ->orderBy('last_name')
-                ->orderBy('first_name')
-                ->get()
-            : collect();
-
-        $cycle = $this->cycleId ? $cycles->firstWhere('id', $this->cycleId) : null;
-        $boletin = null;
-
-        if ($cycle && $this->studentId) {
-            $student = $students->firstWhere('id', $this->studentId);
-
-            if ($student) {
-                $boletin = $service->generate($student, $cycle, $this->bothSemesters);
-            }
-        }
+    public function render(BoletinService $service, TermService $term): View
+    {
+        $data = $this->browserData($term);
+        $cycle = $data['selected'];
+        $hasPrevious = (bool) $cycle?->previous_cycle_id;
 
         return view('livewire.admin.boletines', [
-            'cycles' => $cycles,
-            'students' => $students,
-            'boletin' => $boletin,
-            'hasPrevious' => (bool) $cycle?->previous_cycle_id,
+            ...$data,
+            'boletin' => $data['student'] ? $service->generate($data['student'], $cycle, $this->bothSemesters && $hasPrevious) : null,
+            'hasPrevious' => $hasPrevious,
             'passingScore' => BoletinService::PASSING_SCORE,
+            'startTour' => $this->shouldStartTutorial('boletines'),
         ]);
     }
 }

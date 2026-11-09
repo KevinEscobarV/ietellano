@@ -5,9 +5,7 @@ namespace App\Livewire\Admin;
 use App\Concerns\ShowsTutorials;
 use App\Models\Course;
 use App\Models\Cycle;
-use App\Models\EditWindow;
-use App\Models\Enrollment;
-use App\Models\Grade;
+use App\Services\GradeProgressService;
 use App\Services\TermService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -147,66 +145,12 @@ class GradeEditor extends Component
     }
 
     /**
-     * Cuántos estudiantes le tocan a cada curso, en una sola consulta: un
-     * curso sin grupo cubre todo el ciclo y uno con grupo, solo ese grupo.
-     *
-     * @param  list<int>  $cycleIds
-     * @return array{by_cycle: array<int, int>, by_group: array<string, int>}
-     */
-    private function rosterSizes(array $cycleIds): array
-    {
-        $byCycle = [];
-        $byGroup = [];
-
-        $rows = Enrollment::query()
-            ->whereIn('cycle_id', $cycleIds)
-            ->selectRaw('cycle_id, group_id, count(*) as total')
-            ->groupBy('cycle_id', 'group_id')
-            ->get();
-
-        foreach ($rows as $row) {
-            $byCycle[$row->cycle_id] = ($byCycle[$row->cycle_id] ?? 0) + (int) $row->total;
-
-            if ($row->group_id !== null) {
-                $byGroup["{$row->cycle_id}:{$row->group_id}"] = (int) $row->total;
-            }
-        }
-
-        return ['by_cycle' => $byCycle, 'by_group' => $byGroup];
-    }
-
-    /**
-     * @param  list<int>  $courseIds
-     * @return array<int, array{graded: int, average: float}>
-     */
-    private function gradeProgress(array $courseIds): array
-    {
-        return Grade::query()
-            ->whereIn('course_id', $courseIds)
-            ->whereNotNull('score')
-            ->selectRaw('course_id, count(*) as graded, avg(score) as average')
-            ->groupBy('course_id')
-            ->get()
-            ->mapWithKeys(fn ($row) => [(int) $row->course_id => [
-                'graded' => (int) $row->graded,
-                'average' => round((float) $row->average, 2),
-            ]])
-            ->all();
-    }
-
-    /**
-     * @param  array{by_cycle: array<int, int>, by_group: array<string, int>}  $roster
-     * @param  array<int, array{graded: int, average: float}>  $progress
+     * @param  array{students: int, graded: int, pending: int, average: float|null}  $progress
      * @return array<string, mixed>
      */
-    private function card(Course $course, array $roster, array $progress, TermService $term): array
+    private function card(Course $course, array $progress, TermService $term): array
     {
-        $students = $course->group_id !== null
-            ? ($roster['by_group']["{$course->cycle_id}:{$course->group_id}"] ?? 0)
-            : ($roster['by_cycle'][$course->cycle_id] ?? 0);
-
-        $graded = min($progress[$course->id]['graded'] ?? 0, $students);
-        $pending = $students - $graded;
+        ['students' => $students, 'graded' => $graded, 'pending' => $pending] = $progress;
 
         return [
             'id' => $course->id,
@@ -220,7 +164,7 @@ class GradeEditor extends Component
             'students' => $students,
             'graded' => $graded,
             'pending' => $pending,
-            'average' => $progress[$course->id]['average'] ?? null,
+            'average' => $progress['average'],
             'percent' => $students > 0 ? (int) round($graded / $students * 100) : 0,
             'status' => match (true) {
                 $students === 0 => 'vacio',
@@ -273,7 +217,7 @@ class GradeEditor extends Component
         return ['editor-notas'];
     }
 
-    public function render(TermService $term): View
+    public function render(TermService $term, GradeProgressService $progressService): View
     {
         $terms = $this->terms();
         $cycles = $this->termCycles();
@@ -283,16 +227,11 @@ class GradeEditor extends Component
             ->with('subject', 'group', 'teacher')
             ->get();
 
-        $roster = $this->rosterSizes($cycles->pluck('id')->all());
-        $progress = $this->gradeProgress($courses->pluck('id')->all());
-        $cards = $courses->map(fn (Course $course) => $this->card($course, $roster, $progress, $term));
+        $students = $progressService->rosterSizes($cycles->pluck('id')->all())['by_cycle'];
+        $progress = $progressService->forCourses($courses);
+        $cards = $courses->map(fn (Course $course) => $this->card($course, $progress[$course->id], $term));
 
-        $windows = EditWindow::active()
-            ->whereIn('cycle_id', $cycles->pluck('id'))
-            ->get()
-            ->groupBy('cycle_id');
-
-        $cycleCards = $cycles->map(function (Cycle $cycle) use ($cards, $roster, $windows) {
+        $cycleCards = $cycles->map(function (Cycle $cycle) use ($cards, $students, $term) {
             $own = $cards->where('cycle_id', $cycle->id);
             $expected = $own->sum('students');
             $graded = $own->sum('graded');
@@ -300,13 +239,13 @@ class GradeEditor extends Component
             return [
                 'id' => $cycle->id,
                 'name' => $cycle->name,
-                'students' => $roster['by_cycle'][$cycle->id] ?? 0,
+                'students' => $students[$cycle->id] ?? 0,
                 'courses' => $own->count(),
                 'graded' => $graded,
                 'expected' => $expected,
                 'percent' => $expected > 0 ? (int) round($graded / $expected * 100) : 0,
-                'closed' => $cycle->isClosed(),
-                'window_until' => $windows->get($cycle->id)?->max('closes_at'),
+                // Cada módulo por su lado: el 1 puede estar cerrado mientras el 2 se califica.
+                'modules' => collect(Cycle::MODULES)->mapWithKeys(fn (int $period) => [$period => $term->moduleStatus($cycle, $period)]),
             ];
         });
 

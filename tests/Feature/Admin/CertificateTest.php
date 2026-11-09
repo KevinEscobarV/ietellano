@@ -189,7 +189,8 @@ describe('certificado de los dos semestres', function () {
             'name' => 'Ciclo 4A',
         ]);
 
-        $this->cycle->update(['previous_cycle_id' => $this->previous->id, 'closed_at' => now()]);
+        $this->cycle->update(['previous_cycle_id' => $this->previous->id]);
+        $this->cycle->close();
 
         Enrollment::create([
             'student_id' => $this->student->id,
@@ -199,7 +200,7 @@ describe('certificado de los dos semestres', function () {
 
     it('no combina mientras el segundo semestre siga abierto', function () {
         ($this->calificar)(['MAT' => 4.0, 'LEN' => 4.0], $this->previous);
-        $this->cycle->update(['closed_at' => null]);
+        $this->cycle->reopen();
 
         $certificate = ($this->certificado)(true);
 
@@ -259,8 +260,9 @@ describe('grado que nombra el certificado', function () {
 
         $this->segundo = Cycle::create([
             'code' => 'Ciclo3BS22026', 'level' => '3B', 'semester' => 2, 'year' => 2026, 'name' => 'Ciclo 3B',
-            'previous_cycle_id' => $this->primero->id, 'closed_at' => now(),
+            'previous_cycle_id' => $this->primero->id,
         ]);
+        $this->segundo->close();
 
         $this->rotulo = fn (Cycle $cycle, bool $both = false) => app(CertificateService::class)
             ->generate($this->student, $cycle, $both)['grade_label'];
@@ -296,8 +298,11 @@ describe('pantalla de certificados', function () {
     it('lista el primer semestre aunque ya tenga continuación', function () {
         Livewire::actingAs($this->admin)
             ->test(Certificates::class)
-            ->assertSee('Ciclo 5 · 2026-1')
-            ->assertSee('Ciclo 5 siguiente · 2026-2');
+            // Abre en el semestre más reciente, y el anterior sigue a un clic.
+            ->assertSet('cycleId', (string) $this->siguiente->id)
+            ->set('semester', '1')
+            ->assertSet('cycleId', (string) $this->cycle->id)
+            ->assertSee('Ciclo 5');
     });
 
     it('certifica a quien se quedó en el primer semestre', function () {
@@ -316,16 +321,16 @@ describe('pantalla de certificados', function () {
             ->test(Certificates::class)
             ->set('cycleId', (string) $this->siguiente->id)
             ->set('bothSemesters', true)
-            ->assertSee('Se habilita cuando este semestre esté cerrado')
+            ->assertSee('Se habilita cuando los dos módulos de este semestre estén cerrados')
             ->assertViewHas('combining', false);
 
-        $this->siguiente->update(['closed_at' => now()]);
+        $this->siguiente->close();
 
         Livewire::actingAs($this->admin)
             ->test(Certificates::class)
             ->set('cycleId', (string) $this->siguiente->id)
             ->set('bothSemesters', true)
-            ->assertDontSee('Se habilita cuando este semestre esté cerrado')
+            ->assertDontSee('Se habilita cuando los dos módulos de este semestre estén cerrados')
             ->assertViewHas('combining', true);
     });
 });

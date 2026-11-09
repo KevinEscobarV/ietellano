@@ -9,15 +9,16 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * El permiso temporal para editar un semestre ya cerrado. Sin curso vale para
- * todas las materias del ciclo; con curso, solo para esa.
+ * El permiso temporal para editar un módulo ya cerrado. Con curso vale solo
+ * para esa materia; sin curso, para el módulo indicado o, sin módulo, para
+ * todo el ciclo.
  */
-#[Fillable(['cycle_id', 'course_id', 'closes_at', 'note', 'opened_by'])]
+#[Fillable(['cycle_id', 'course_id', 'period', 'closes_at', 'note', 'opened_by'])]
 class EditWindow extends Model
 {
     protected function casts(): array
     {
-        return ['closes_at' => 'datetime'];
+        return ['period' => 'integer', 'closes_at' => 'datetime'];
     }
 
     /**
