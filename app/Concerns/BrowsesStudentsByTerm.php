@@ -19,14 +19,7 @@ use Livewire\Attributes\Url;
  */
 trait BrowsesStudentsByTerm
 {
-    #[Url(as: 'anio', except: '')]
-    public string $year = '';
-
-    #[Url(as: 'semestre', except: '')]
-    public string $semester = '';
-
-    #[Url(as: 'ciclo', except: '')]
-    public string $cycleId = '';
+    use BrowsesCyclesByTerm;
 
     #[Url(as: 'grupo', except: '')]
     public string $groupId = '';
@@ -37,60 +30,18 @@ trait BrowsesStudentsByTerm
     #[Url(as: 'estudiante', except: '')]
     public string $studentId = '';
 
-    /**
-     * Livewire lo llama al montar el componente que usa el trait.
-     */
-    public function mountBrowsesStudentsByTerm(): void
+    public function clearSearch(): void
     {
-        // Un enlace que ya trae el ciclo manda sobre el año y el semestre.
-        $cycle = $this->cycleId !== '' ? Cycle::find((int) $this->cycleId) : null;
-
-        if ($cycle !== null) {
-            $this->year = (string) $cycle->year;
-            $this->semester = (string) $cycle->semester;
-
-            return;
-        }
-
-        $terms = $this->terms();
-
-        if (! $terms->has((int) $this->year)) {
-            $this->year = (string) ($terms->keys()->first() ?? '');
-        }
-
-        $this->pickSemester();
-    }
-
-    public function updatedYear(): void
-    {
-        $this->pickSemester();
-    }
-
-    public function updatedSemester(): void
-    {
-        $this->pickCycle();
+        $this->reset(['search', 'groupId']);
     }
 
     /**
      * Cambiar de ciclo es empezar de nuevo: el estudiante, el grupo y lo
-     * buscado eran del otro. El año y el semestre se alinean con el ciclo,
-     * por si llegó de otro lado.
+     * buscado eran del otro.
      */
-    public function updatedCycleId(): void
+    protected function resetCycleSelection(): void
     {
-        $cycle = Cycle::find((int) $this->cycleId);
-
-        if ($cycle !== null) {
-            $this->year = (string) $cycle->year;
-            $this->semester = (string) $cycle->semester;
-        }
-
         $this->resetStudent();
-    }
-
-    public function clearSearch(): void
-    {
-        $this->reset(['search', 'groupId']);
     }
 
     /**
@@ -100,61 +51,6 @@ trait BrowsesStudentsByTerm
     protected function resetStudent(): void
     {
         $this->reset(['studentId', 'groupId', 'search']);
-    }
-
-    private function pickSemester(): void
-    {
-        $semesters = $this->terms()->get((int) $this->year, collect());
-
-        if (! $semesters->contains((int) $this->semester)) {
-            $this->semester = (string) ($semesters->first() ?? '');
-        }
-
-        $this->pickCycle();
-    }
-
-    /**
-     * Se entra con el primer ciclo elegido, para que la lista de estudiantes
-     * aparezca de una vez.
-     */
-    private function pickCycle(): void
-    {
-        $this->cycleId = (string) ($this->termCycles()->first()?->id ?? '');
-        $this->resetStudent();
-    }
-
-    /**
-     * Año => semestres que tienen ciclos, lo más reciente primero.
-     *
-     * @return Collection<int, Collection<int, int>>
-     */
-    private function terms(): Collection
-    {
-        return Cycle::query()
-            ->select('year', 'semester')
-            ->distinct()
-            ->orderByDesc('year')
-            ->orderByDesc('semester')
-            ->get()
-            ->groupBy('year')
-            ->map(fn (Collection $rows) => $rows->pluck('semester')->map(fn ($semester) => (int) $semester)->values());
-    }
-
-    /**
-     * @return Collection<int, Cycle>
-     */
-    private function termCycles(): Collection
-    {
-        if ($this->year === '' || $this->semester === '') {
-            return collect();
-        }
-
-        return Cycle::query()
-            ->where('year', (int) $this->year)
-            ->where('semester', (int) $this->semester)
-            ->ordered()
-            ->withCount('enrollments')
-            ->get();
     }
 
     /**
@@ -238,22 +134,12 @@ trait BrowsesStudentsByTerm
      */
     private function browserData(TermService $term): array
     {
-        $terms = $this->terms();
-        $cycles = $this->termCycles();
-        $selected = $cycles->firstWhere('id', (int) $this->cycleId);
+        $data = $this->cycleBrowserData($term);
+        $selected = $data['selected'];
         $roster = $selected ? $this->roster($selected) : collect();
 
         return [
-            'years' => $terms->keys(),
-            'semesters' => $terms->get((int) $this->year, collect()),
-            'cycleCards' => $cycles->map(fn (Cycle $cycle) => [
-                'id' => $cycle->id,
-                'name' => $cycle->name,
-                'students' => $cycle->enrollments_count,
-                'closed' => $term->isClosed($cycle),
-                'modules' => collect(Cycle::MODULES)->mapWithKeys(fn (int $period) => [$period => $term->moduleStatus($cycle, $period)]),
-            ]),
-            'selected' => $selected,
+            ...$data,
             'groups' => $roster->whereNotNull('group_id')->unique('group_id')->sortBy('group')->pluck('group', 'group_id'),
             'roster' => $this->filterRoster($roster),
             'rosterTotal' => $roster->count(),

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Teacher\ConsolidadoDownloadController;
 use App\Livewire\Teacher\Attendance;
 use App\Livewire\Teacher\Gradebook;
 use App\Livewire\Teacher\MyCourses;
@@ -9,4 +10,5 @@ Route::middleware(['auth', 'verified', 'teacher'])->prefix('docente')->name('tea
     Route::livewire('materias', MyCourses::class)->name('courses');
     Route::livewire('materias/{course}/notas', Gradebook::class)->name('gradebook');
     Route::livewire('materias/{course}/asistencia', Attendance::class)->name('attendance');
+    Route::get('consolidado/{cycle}', ConsolidadoDownloadController::class)->name('consolidado');
 });

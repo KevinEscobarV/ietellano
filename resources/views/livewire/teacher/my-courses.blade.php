@@ -6,7 +6,32 @@
             <flux:subheading>{{ __('Estas son las materias que tienes a cargo.') }}</flux:subheading>
         </div>
 
-        <x-tour-button name="mis-materias" />
+        <div class="flex flex-wrap items-center gap-2">
+            {{-- El consolidado es de un ciclo: el elegido, o uno por cada ciclo
+                 cuando se ven todos. --}}
+            @php $consolidadoCycles = $cycleId !== '' ? $cycles->where('id', (int) $cycleId) : $cycles; @endphp
+
+            @if ($consolidadoCycles->isNotEmpty())
+                <flux:dropdown position="bottom" align="end">
+                    <flux:button size="sm" icon="table-cells" icon-trailing="chevron-down" data-tour="consolidado">{{ __('Consolidado') }}</flux:button>
+
+                    <flux:menu>
+                        @foreach ($consolidadoCycles as $cycle)
+                            <flux:menu.group :heading="$cycle->label" wire:key="consolidado-{{ $cycle->id }}">
+                                <flux:menu.item icon="table-cells" :href="route('teacher.consolidado', ['cycle' => $cycle->id, 'formato' => 'xlsx'])" target="_blank">
+                                    {{ __('Excel') }}
+                                </flux:menu.item>
+                                <flux:menu.item icon="document-arrow-down" :href="route('teacher.consolidado', ['cycle' => $cycle->id, 'formato' => 'pdf'])" target="_blank">
+                                    {{ __('PDF') }}
+                                </flux:menu.item>
+                            </flux:menu.group>
+                        @endforeach
+                    </flux:menu>
+                </flux:dropdown>
+            @endif
+
+            <x-tour-button name="mis-materias" />
+        </div>
     </div>
 
     {{-- Resumen del semestre --}}
@@ -194,6 +219,7 @@
         ['target' => 'summary', 'title' => __('Tu semestre de un vistazo'), 'body' => __('«Notas por poner» es lo que te falta en las materias que todavía están abiertas.')],
         ['target' => 'cycles', 'title' => __('Cambia de semestre'), 'body' => __('La pantalla abre en el semestre en curso. Aquí puedes consultar los anteriores.')],
         ['target' => 'course', 'title' => __('Cada tarjeta es una materia'), 'body' => __('Dice el módulo, el grupo y cuántas notas llevas. Haz clic en ella para abrir la planilla. «Cerrado» significa que solo se puede consultar; «hasta el…», que tienes plazo hasta esa fecha.')],
+        ['target' => 'consolidado', 'title' => __('Tu consolidado'), 'body' => __('Descarga en Excel o PDF las notas de tus materias y grupos del ciclo: Módulo 1, Módulo 2, definitiva y fallas de cada estudiante.')],
         ['target' => 'help', 'title' => __('¿Dudas? Vuelve aquí'), 'body' => __('Este botón abre otra vez esta guía.')],
     ]" />
 </section>

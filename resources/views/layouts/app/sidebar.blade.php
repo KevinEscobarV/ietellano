@@ -61,6 +61,9 @@
                     <flux:sidebar.item icon="document-check" :href="route('admin.certificates')" :current="request()->routeIs('admin.certificates')" wire:navigate>
                         {{ __('Certificados') }}
                     </flux:sidebar.item>
+                    <flux:sidebar.item icon="table-cells" :href="route('admin.consolidados')" :current="request()->routeIs('admin.consolidados')" wire:navigate>
+                        {{ __('Consolidados') }}
+                    </flux:sidebar.item>
                 </flux:sidebar.group>
 
                 <flux:sidebar.group :heading="__('Sistema')" class="grid">

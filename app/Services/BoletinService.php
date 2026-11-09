@@ -3,15 +3,33 @@
 namespace App\Services;
 
 use App\Enums\AttendanceStatus;
+use App\Models\Area;
 use App\Models\Attendance;
 use App\Models\Course;
 use App\Models\Cycle;
 use App\Models\Grade;
 use App\Models\Student;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Collection;
 
 class BoletinService
 {
     public const PASSING_SCORE = 3.0;
+
+    /**
+     * Las materias de un grupo y las áreas de un ciclo son las mismas para
+     * todos sus estudiantes. Se guardan mientras dure la instancia, para que
+     * el ZIP de un ciclo o el consolidado no las consulten una vez por
+     * estudiante.
+     *
+     * @var array<string, array{courses: EloquentCollection<int, Course>, held: Collection<int, int>}>
+     */
+    private array $coursesByGroup = [];
+
+    /**
+     * @var array<int, EloquentCollection<int, Area>>
+     */
+    private array $cycleAreas = [];
 
     /**
      * National performance scale (Decreto 1290). Cut points are institution-configurable.
@@ -76,25 +94,15 @@ class BoletinService
      */
     private function subjectData(Student $student, Cycle $cycle, ?int $groupId): array
     {
-        $courses = Course::query()
-            ->where('cycle_id', $cycle->id)
-            ->where(fn ($query) => $query->whereNull('group_id')->orWhere('group_id', $groupId))
-            ->with('subject', 'teacher')
-            ->get();
+        ['courses' => $courses, 'held' => $held] = $this->groupCourses($cycle, $groupId);
 
         $scores = Grade::query()
             ->where('student_id', $student->id)
             ->whereIn('course_id', $courses->pluck('id'))
             ->pluck('score', 'course_id');
 
-        // Clases dictadas y fallas del estudiante, en el mismo viaje que las
-        // notas: el boletín las muestra al lado de cada materia.
-        $held = Attendance::query()
-            ->whereIn('course_id', $courses->pluck('id'))
-            ->selectRaw('course_id, count(distinct class_session_id) as total')
-            ->groupBy('course_id')
-            ->pluck('total', 'course_id');
-
+        // Las fallas del estudiante, en el mismo viaje que las notas: el
+        // boletín las muestra al lado de cada materia.
         $absences = Attendance::query()
             ->where('student_id', $student->id)
             ->whereIn('course_id', $courses->pluck('id'))
@@ -114,6 +122,31 @@ class BoletinService
         }
 
         return $subjects;
+    }
+
+    /**
+     * Las materias que le tocan a un grupo (las suyas y las de todo el ciclo)
+     * y cuántas clases se han dictado en cada una.
+     *
+     * @return array{courses: EloquentCollection<int, Course>, held: Collection<int, int>}
+     */
+    private function groupCourses(Cycle $cycle, ?int $groupId): array
+    {
+        return $this->coursesByGroup[$cycle->id.'-'.($groupId ?? 0)] ??= (function () use ($cycle, $groupId) {
+            $courses = Course::query()
+                ->where('cycle_id', $cycle->id)
+                ->where(fn ($query) => $query->whereNull('group_id')->orWhere('group_id', $groupId))
+                ->with('subject', 'teacher')
+                ->get();
+
+            $held = Attendance::query()
+                ->whereIn('course_id', $courses->pluck('id'))
+                ->selectRaw('course_id, count(distinct class_session_id) as total')
+                ->groupBy('course_id')
+                ->pluck('total', 'course_id');
+
+            return ['courses' => $courses, 'held' => $held];
+        })();
     }
 
     /**
@@ -181,7 +214,9 @@ class BoletinService
         $lines = [];
         $usedSubjectIds = [];
 
-        foreach ($cycle->areas()->with('subjects')->orderBy('display_order')->get() as $area) {
+        $this->cycleAreas[$cycle->id] ??= $cycle->areas()->with('subjects')->orderBy('display_order')->get();
+
+        foreach ($this->cycleAreas[$cycle->id] as $area) {
             $members = array_intersect_key($subjectLines, array_flip($area->subjects->pluck('id')->all()));
 
             if ($members === []) {
@@ -255,9 +290,13 @@ class BoletinService
     }
 
     /**
+     * El promedio de las notas que hay, a dos decimales. Las que faltan no
+     * cuentan. El consolidado lo usa para que sus cuentas den lo mismo que el
+     * boletín.
+     *
      * @param  list<float|string|null>  $values
      */
-    private function average(array $values): ?float
+    public static function average(array $values): ?float
     {
         $numbers = array_filter($values, fn ($value) => $value !== null);
 

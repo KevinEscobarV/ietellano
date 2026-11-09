@@ -1,8 +1,8 @@
 @props(['years', 'semesters', 'cycleCards', 'cycleId'])
 
-{{-- Pasos 1 y 2 de Boletines y Certificados: el semestre y el ciclo. Las
-     propiedades year, semester y cycleId son del componente de Livewire que
-     usa el trait BrowsesStudentsByTerm. --}}
+{{-- Pasos 1 y 2 de Boletines, Certificados y Consolidados: el semestre y el
+     ciclo. Las propiedades year, semester y cycleId son del componente de
+     Livewire que usa el trait BrowsesCyclesByTerm. --}}
 
 <div class="print:hidden">
     {{-- 1 · Semestre --}}
