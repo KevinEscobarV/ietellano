@@ -184,6 +184,35 @@ describe('planilla de notas', function () {
         expect(Grade::where('course_id', $this->course->id)->value('score'))->toBeNull();
     });
 
+    test('la casilla manda la nota al servidor al salir de ella', function () {
+        // En Livewire 4, `wire:model.blur` sin `.live` solo actualiza el
+        // navegador: la nota no se guardaba hasta pulsar "Guardar todo".
+        Livewire::actingAs($this->user)
+            ->test(Gradebook::class, ['course' => $this->course])
+            ->assertSeeHtml('wire:model.live.blur="scores.'.$this->student->id.'"');
+    });
+
+    test('la nota con coma también sirve', function () {
+        Livewire::actingAs($this->user)
+            ->test(Gradebook::class, ['course' => $this->course])
+            ->set("scores.{$this->student->id}", ' 3,5 ')
+            ->assertHasNoErrors()
+            ->assertSet("scores.{$this->student->id}", '3.5');
+
+        expect(Grade::where('course_id', $this->course->id)->value('score'))->toEqual('3.50');
+    });
+
+    test('lo que no es un número se rechaza sin tocar la nota guardada', function () {
+        Grade::create(['course_id' => $this->course->id, 'student_id' => $this->student->id, 'score' => 4.0]);
+
+        Livewire::actingAs($this->user)
+            ->test(Gradebook::class, ['course' => $this->course])
+            ->set("scores.{$this->student->id}", 'cuatro')
+            ->assertHasErrors("scores.{$this->student->id}");
+
+        expect(Grade::where('course_id', $this->course->id)->value('score'))->toEqual('4.00');
+    });
+
     test('una nota fuera de 0 a 5 se rechaza', function () {
         Livewire::actingAs($this->user)
             ->test(Gradebook::class, ['course' => $this->course])

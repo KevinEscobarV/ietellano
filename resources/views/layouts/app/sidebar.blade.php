@@ -46,7 +46,7 @@
                     <flux:sidebar.item icon="arrow-up-tray" :href="route('admin.grades')" :current="request()->routeIs('admin.grades')" wire:navigate>
                         {{ __('Importar notas') }}
                     </flux:sidebar.item>
-                    <flux:sidebar.item icon="pencil-square" :href="route('admin.grade-editor')" :current="request()->routeIs('admin.grade-editor')" wire:navigate>
+                    <flux:sidebar.item icon="pencil-square" :href="route('admin.grade-editor')" :current="request()->routeIs('admin.grade-editor', 'admin.grade-editor.*')" wire:navigate>
                         {{ __('Editar notas') }}
                     </flux:sidebar.item>
                     <flux:sidebar.item icon="lock-closed" :href="route('admin.closure')" :current="request()->routeIs('admin.closure')" wire:navigate>

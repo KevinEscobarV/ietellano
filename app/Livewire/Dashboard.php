@@ -258,6 +258,7 @@ class Dashboard extends Component
                 $expected = $this->expected($course, $roster);
 
                 return [
+                    'id' => $course->id,
                     'subject' => $course->subject?->name ?? $course->code,
                     'group' => $course->group?->name,
                     'period' => $course->period,

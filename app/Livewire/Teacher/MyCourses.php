@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Teacher;
 
+use App\Concerns\ShowsTutorials;
 use App\Models\Course;
 use App\Models\Cycle;
 use App\Models\Enrollment;
@@ -18,6 +19,8 @@ use Livewire\Component;
 #[Title('Mis materias')]
 class MyCourses extends Component
 {
+    use ShowsTutorials;
+
     #[Url(as: 'ciclo', except: '')]
     public string $cycleId = '';
 
@@ -81,7 +84,16 @@ class MyCourses extends Component
             'cycles' => $cycles,
             'cards' => $cards,
             'summary' => $this->summary($cards, $this->uniqueStudents($visible)),
+            'startTour' => $this->shouldStartTutorial('mis-materias'),
         ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function tutorials(): array
+    {
+        return ['mis-materias'];
     }
 
     private function teacher(): Teacher

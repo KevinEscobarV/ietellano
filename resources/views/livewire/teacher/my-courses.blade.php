@@ -1,12 +1,16 @@
 <section class="w-full">
     {{-- Encabezado --}}
-    <div class="mb-8">
-        <flux:heading size="xl" level="1">{{ __('Hola, :name', ['name' => $teacher->first_name]) }}</flux:heading>
-        <flux:subheading>{{ __('Estas son las materias que tienes a cargo.') }}</flux:subheading>
+    <div class="mb-8 flex flex-wrap items-start justify-between gap-3">
+        <div>
+            <flux:heading size="xl" level="1">{{ __('Hola, :name', ['name' => $teacher->first_name]) }}</flux:heading>
+            <flux:subheading>{{ __('Estas son las materias que tienes a cargo.') }}</flux:subheading>
+        </div>
+
+        <x-tour-button name="mis-materias" />
     </div>
 
     {{-- Resumen del semestre --}}
-    <div class="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" data-tour="summary">
         <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
             <div class="text-xs font-medium uppercase tracking-wide text-zinc-500">{{ __('Materias') }}</div>
             <div class="mt-1 text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $summary['courses'] }}</div>
@@ -41,7 +45,7 @@
     {{-- Filtros --}}
     <div class="mb-6 flex flex-wrap items-center gap-3">
         @if ($cycles->count() > 1)
-            <div class="flex flex-wrap gap-1.5">
+            <div class="flex flex-wrap gap-1.5" data-tour="cycles">
                 <button
                     type="button"
                     wire:click="$set('cycleId', '')"
@@ -104,11 +108,12 @@
 
                 <div
                     wire:key="course-{{ $card['id'] }}"
+                    @if ($loop->first) data-tour="course" @endif
                     class="group relative flex flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-5 transition hover:border-zinc-300 hover:shadow-md focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-emerald-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600"
                 >
                     <div class="flex items-start justify-between gap-3">
                         <div class="flex flex-wrap items-center gap-1.5">
-                            <flux:badge size="sm" color="zinc">{{ __('Periodo :n', ['n' => $card['period']]) }}</flux:badge>
+                            <flux:badge size="sm" color="zinc">{{ __('Módulo :n', ['n' => $card['period']]) }}</flux:badge>
                             @if ($card['group'] !== '')
                                 <flux:badge size="sm" color="zinc" variant="outline">{{ $card['group'] }}</flux:badge>
                             @endif
@@ -183,4 +188,12 @@
             @endforeach
         </div>
     @endif
+
+    <x-tour name="mis-materias" :autostart="$startTour" :steps="[
+        ['target' => null, 'title' => __('Bienvenido a tu portal'), 'body' => __('En menos de un minuto te mostramos dónde poner las notas de tus materias. Puedes saltarlo y verlo después con «¿Cómo funciona?».')],
+        ['target' => 'summary', 'title' => __('Tu semestre de un vistazo'), 'body' => __('«Notas por poner» es lo que te falta en las materias que todavía están abiertas.')],
+        ['target' => 'cycles', 'title' => __('Cambia de semestre'), 'body' => __('La pantalla abre en el semestre en curso. Aquí puedes consultar los anteriores.')],
+        ['target' => 'course', 'title' => __('Cada tarjeta es una materia'), 'body' => __('Dice el módulo, el grupo y cuántas notas llevas. Haz clic en ella para abrir la planilla. «Cerrado» significa que solo se puede consultar; «hasta el…», que tienes plazo hasta esa fecha.')],
+        ['target' => 'help', 'title' => __('¿Dudas? Vuelve aquí'), 'body' => __('Este botón abre otra vez esta guía.')],
+    ]" />
 </section>

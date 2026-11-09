@@ -45,15 +45,19 @@
 <section class="w-full max-w-4xl">
     {{-- Encabezado --}}
     <div class="mb-6">
-        <flux:link :href="route('teacher.courses')" wire:navigate variant="subtle" class="mb-3 inline-flex items-center gap-1 text-sm">
-            <flux:icon name="arrow-left" class="size-4" />
-            {{ __('Mis materias') }}
-        </flux:link>
+        <div class="mb-3 flex items-center justify-between gap-3">
+            <flux:link :href="$back['url']" wire:navigate variant="subtle" class="inline-flex items-center gap-1 text-sm">
+                <flux:icon name="arrow-left" class="size-4" />
+                {{ $back['label'] }}
+            </flux:link>
+
+            <x-tour-button name="planilla" />
+        </div>
 
         <flux:heading size="xl" level="1">{{ $course->subject?->name ?? $course->code }}</flux:heading>
 
         <div class="mt-2 flex flex-wrap items-center gap-1.5">
-            <flux:badge size="sm" color="zinc">{{ __('Periodo :n', ['n' => $course->period]) }}</flux:badge>
+            <flux:badge size="sm" color="zinc">{{ __('Módulo :n', ['n' => $course->period]) }}</flux:badge>
             @if ($course->group)
                 <flux:badge size="sm" color="zinc" variant="outline">{{ $course->group->name }}</flux:badge>
             @endif
@@ -61,15 +65,41 @@
                 <flux:badge size="sm" color="zinc" variant="outline">{{ $course->cycle->label }}</flux:badge>
             @endif
             <flux:badge size="sm" color="zinc" variant="outline">{{ $course->code }}</flux:badge>
+            @if ($byCoordination)
+                <flux:badge size="sm" color="zinc" variant="outline" icon="user">{{ $course->teacher?->name ?? __('Sin docente') }}</flux:badge>
+            @endif
         </div>
     </div>
 
-    <x-term-notice :editable="$this->editable" :until="$this->openUntil" />
+    <div data-tour="notice">
+        @if ($byCoordination)
+            {{-- La coordinación escribe siempre; lo que necesita saber es si el
+                 docente todavía puede o si está corrigiendo algo ya entregado. --}}
+            @if ($cycleClosed)
+                <div class="mb-4 flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-500/40 dark:bg-amber-500/10">
+                    <flux:icon name="shield-check" class="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <div>
+                        <div class="text-sm font-medium text-amber-900 dark:text-amber-200">{{ __('Estás corrigiendo como coordinación') }}</div>
+                        <p class="mt-0.5 text-sm text-amber-800 dark:text-amber-300">
+                            @if ($this->openUntil !== null)
+                                {{ __('El semestre está cerrado, pero el docente tiene una ventana de edición hasta el :date. Los dos pueden escribir en esta planilla.', ['date' => $this->openUntil->translatedFormat('j \d\e F, g:i a')]) }}
+                            @else
+                                {{ __('El semestre está cerrado y el docente ya no puede editar. Tus cambios se guardan igual, al salir de cada casilla.') }}
+                            @endif
+                        </p>
+                    </div>
+                </div>
+            @endif
+        @else
+            <x-term-notice :editable="$this->editable" :until="$this->openUntil" />
+        @endif
+    </div>
 
     {{-- Barra de avance: se queda arriba mientras el docente baja por la lista --}}
     <div
         x-data="{ saved: false, timer: null }"
         @grade-saved.window="saved = true; clearTimeout(timer); timer = setTimeout(() => saved = false, 2200)"
+        data-tour="progress"
         class="sticky top-0 z-10 mb-4 rounded-xl border border-zinc-200 bg-white/95 p-4 backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95"
     >
         <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
@@ -115,7 +145,7 @@
                 </span>
 
                 @if ($this->editable)
-                    <flux:button size="sm" variant="primary" icon="check" wire:click="saveAll" wire:loading.attr="disabled">
+                    <flux:button size="sm" variant="primary" icon="check" wire:click="saveAll" wire:loading.attr="disabled" data-tour="save">
                         {{ __('Guardar todo') }}
                     </flux:button>
                 @endif
@@ -135,7 +165,7 @@
     </div>
 
     {{-- Filtros de la lista --}}
-    <div class="mb-3 flex flex-wrap items-center gap-3">
+    <div class="mb-3 flex flex-wrap items-center gap-3" data-tour="filters">
         <div class="w-full sm:w-72">
             <flux:input
                 wire:model.live.debounce.300ms="search"
@@ -203,7 +233,7 @@
         @forelse ($students as $student)
             @php
                 $raw = $scores[$student->id] ?? null;
-                $value = ($raw === null || $raw === '') ? null : (float) $raw;
+                $value = is_numeric($raw) ? (float) $raw : null;
                 $tone = $toneFor($value);
             @endphp
 
@@ -222,23 +252,28 @@
                     <div class="truncate text-sm text-zinc-500">{{ $student->document ?? '—' }}</div>
                 </div>
 
-                <span class="hidden shrink-0 rounded-full px-2.5 py-1 text-xs font-medium sm:inline-block {{ $tone['chip'] }}">
+                <span
+                    @if ($loop->first) data-tour="chip" @endif
+                    class="hidden shrink-0 rounded-full px-2.5 py-1 text-xs font-medium sm:inline-block {{ $tone['chip'] }}"
+                >
                     {{ $tone['label'] }}
                 </span>
 
-                <div class="w-20 shrink-0 sm:w-24">
+                <div class="w-20 shrink-0 sm:w-24" @if ($loop->first) data-tour="score" @endif>
+                    {{-- Texto y no número: un input numérico descarta "3,5" en
+                         silencio según el idioma del navegador. --}}
                     <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="5"
+                        type="text"
                         inputmode="decimal"
+                        autocomplete="off"
+                        maxlength="5"
                         data-score
-                        wire:model.blur="scores.{{ $student->id }}"
+                        x-on:focus="$el.select()"
+                        wire:model.live.blur="scores.{{ $student->id }}"
                         @readonly(! $this->editable)
                         placeholder="—"
                         aria-label="{{ __('Nota de :name', ['name' => $student->fullName()]) }}"
-                        class="w-full rounded-lg border bg-white px-2 py-2 text-center text-lg font-semibold tabular-nums transition focus:outline-none focus:ring-2 read-only:cursor-default read-only:opacity-75 dark:bg-zinc-900 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none {{ $tone['field'] }}"
+                        class="w-full rounded-lg border bg-white px-2 py-2 text-center text-lg font-semibold tabular-nums transition focus:outline-none focus:ring-2 read-only:cursor-default read-only:opacity-75 dark:bg-zinc-900 {{ $tone['field'] }}"
                     >
 
                     @error('scores.'.$student->id)
@@ -275,4 +310,20 @@
             @endif
         </div>
     @endif
+
+    @php
+        // En una planilla de solo lectura no se explica cómo escribir ni guardar.
+        $tourSteps = array_values(array_filter([
+            ['target' => null, 'title' => __('Así se ponen las notas'), 'body' => __('Te lo mostramos en pocos pasos. Puedes saltarlo y volver a verlo cuando quieras con el botón «¿Cómo funciona?».')],
+            ['target' => 'notice', 'title' => __('¿Se puede editar?'), 'body' => __('Este aviso dice si la planilla está abierta y hasta cuándo. Si el semestre ya cerró, solo se puede consultar.')],
+            $this->editable ? ['target' => 'score', 'title' => __('Escribe la nota'), 'body' => __('Va de 0 a 5 y sirve con punto o con coma: 3.5 o 3,5. Con Enter o con la flecha ↓ pasas al siguiente estudiante.')] : null,
+            $this->editable ? ['target' => 'progress', 'title' => __('Se guarda sola'), 'body' => __('Cada nota queda guardada al salir de la casilla y aquí aparece «Guardado». También llevas la cuenta: notas puestas, promedio, cuántos aprueban y cuántos no.')] : null,
+            ['target' => 'chip', 'title' => __('El color es el desempeño'), 'body' => __('Verde es Superior o Alto, amarillo es Básico y rojo es Bajo: menos de 3.0, que no aprueba.')],
+            ['target' => 'filters', 'title' => __('Encuentra a alguien rápido'), 'body' => __('Busca por nombre o documento, o deja a la vista solo a quienes todavía les falta la nota.')],
+            $this->editable ? ['target' => 'save', 'title' => __('«Guardar todo» es opcional'), 'body' => __('No hace falta, porque cada nota ya se guarda sola. Úsalo si quieres asegurarte antes de salir de la planilla.')] : null,
+            ['target' => 'help', 'title' => __('¿Dudas? Vuelve aquí'), 'body' => __('Este botón abre otra vez esta guía.')],
+        ]));
+    @endphp
+
+    <x-tour name="planilla" :autostart="$startTour" :steps="$tourSteps" />
 </section>

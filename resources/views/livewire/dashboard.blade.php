@@ -99,18 +99,30 @@
             @if (count($behind) > 0)
                 <div class="mt-6 border-t border-zinc-100 pt-4 dark:border-zinc-800">
                     <div class="{{ $label }} mb-2">{{ __('Cursos con más notas pendientes') }}</div>
+                    {{-- Los roles de consulta ven el tablero pero no entran al panel de notas. --}}
+                    @php $canOpenGrades = auth()->user()?->hasAnyRole(['super-admin', 'admin']); @endphp
+
                     <ul class="divide-y divide-zinc-100 dark:divide-zinc-800">
                         @foreach ($behind as $course)
-                            <li class="flex items-center justify-between gap-4 py-2 text-sm">
-                                <div class="min-w-0">
-                                    <div class="truncate font-medium text-zinc-800 dark:text-zinc-200">
-                                        {{ $course['subject'] }}@if ($course['group']) <span class="font-normal text-zinc-500">· {{ $course['group'] }}</span>@endif
+                            <li>
+                                <a
+                                    @if ($canOpenGrades) href="{{ route('admin.grade-editor.course', $course['id']) }}" wire:navigate @endif
+                                    @class([
+                                        '-mx-2 flex items-center justify-between gap-4 rounded-lg px-2 py-2 text-sm',
+                                        'transition hover:bg-zinc-50 dark:hover:bg-zinc-800/60' => $canOpenGrades,
+                                    ])
+                                >
+                                    <div class="min-w-0">
+                                        <div class="truncate font-medium text-zinc-800 dark:text-zinc-200">
+                                            {{ $course['subject'] }}@if ($course['group']) <span class="font-normal text-zinc-500">· {{ $course['group'] }}</span>@endif
+                                            <span class="font-normal text-zinc-500">· {{ __('M:n', ['n' => $course['period']]) }}</span>
+                                        </div>
+                                        <div class="truncate text-xs text-zinc-500">{{ $course['teacher'] ?? __('Sin docente') }}</div>
                                     </div>
-                                    <div class="truncate text-xs text-zinc-500">{{ $course['teacher'] ?? __('Sin docente') }}</div>
-                                </div>
-                                <span class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium tabular-nums text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
-                                    {{ __('faltan :count', ['count' => $course['missing']]) }}
-                                </span>
+                                    <span class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium tabular-nums text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                                        {{ __('faltan :count', ['count' => $course['missing']]) }}
+                                    </span>
+                                </a>
                             </li>
                         @endforeach
                     </ul>

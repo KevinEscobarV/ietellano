@@ -31,7 +31,26 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'tutorials_seen' => 'array',
         ];
+    }
+
+    /**
+     * Si la persona ya terminó o saltó ese tutorial. Mientras no lo haya
+     * hecho, la pantalla lo abre sola la primera vez que entra.
+     */
+    public function hasSeenTutorial(string $name): bool
+    {
+        return in_array($name, $this->tutorials_seen ?? [], true);
+    }
+
+    public function markTutorialSeen(string $name): void
+    {
+        if ($this->hasSeenTutorial($name)) {
+            return;
+        }
+
+        $this->forceFill(['tutorials_seen' => [...($this->tutorials_seen ?? []), $name]])->save();
     }
 
     /**

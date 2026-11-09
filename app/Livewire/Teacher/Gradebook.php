@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Teacher;
 
+use App\Concerns\ShowsTutorials;
 use App\Models\Course;
 use App\Models\Grade;
 use App\Models\Student;
@@ -14,8 +15,15 @@ use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 
+/**
+ * La planilla de notas de un curso. Es la misma para el docente y para la
+ * coordinación (Admin\CourseGrades la extiende): lo único que cambia es quién
+ * entra, quién escribe y a dónde lleva el botón de volver.
+ */
 class Gradebook extends Component
 {
+    use ShowsTutorials;
+
     public Course $course;
 
     public string $search = '';
@@ -35,9 +43,9 @@ class Gradebook extends Component
 
     public function mount(Course $course): void
     {
-        $this->authorize('view', $course);
+        $this->authorizeAccess($course);
 
-        $this->course = $course->load('subject', 'group', 'cycle');
+        $this->course = $course->load('subject', 'group', 'cycle', 'teacher');
         $this->scores = $this->savedScores();
     }
 
@@ -49,7 +57,46 @@ class Gradebook extends Component
     #[Computed]
     public function editable(): bool
     {
+        return $this->canWrite();
+    }
+
+    protected function authorizeAccess(Course $course): void
+    {
+        $this->authorize('view', $course);
+    }
+
+    protected function canWrite(): bool
+    {
         return auth()->user()->can('grade', $this->course);
+    }
+
+    protected function authorizeWrite(): void
+    {
+        $this->authorize('grade', $this->course);
+    }
+
+    /**
+     * @return array{url: string, label: string}
+     */
+    protected function backLink(): array
+    {
+        return ['url' => route('teacher.courses'), 'label' => __('Mis materias')];
+    }
+
+    /**
+     * Si quien mira la planilla es la coordinación y no el docente del curso.
+     */
+    protected function managedByCoordination(): bool
+    {
+        return false;
+    }
+
+    /**
+     * @return list<string>
+     */
+    protected function tutorials(): array
+    {
+        return ['planilla'];
     }
 
     /**
@@ -99,11 +146,13 @@ class Gradebook extends Component
             return;
         }
 
-        $this->authorize('grade', $this->course);
+        $this->authorizeWrite();
 
         $studentId = (int) $key;
 
         abort_unless($this->isInRoster($studentId), 403);
+
+        $this->scores[$key] = $value = $this->cleanInput($value);
 
         $this->validateOnly("scores.{$key}");
 
@@ -114,7 +163,9 @@ class Gradebook extends Component
 
     public function saveAll(): void
     {
-        $this->authorize('grade', $this->course);
+        $this->authorizeWrite();
+
+        $this->scores = array_map(fn (mixed $score) => $this->cleanInput($score), $this->scores);
 
         $this->validate();
 
@@ -140,6 +191,16 @@ class Gradebook extends Component
     private function normalize(mixed $score): ?float
     {
         return ($score === null || $score === '') ? null : round((float) $score, 2);
+    }
+
+    /**
+     * En Colombia la nota se escribe con coma (3,5). La casilla es de texto
+     * para que el navegador no la descarte en silencio, y aquí se pasa a punto
+     * antes de validarla.
+     */
+    private function cleanInput(mixed $score): mixed
+    {
+        return is_string($score) ? str_replace(',', '.', trim($score)) : $score;
     }
 
     /**
@@ -201,7 +262,7 @@ class Gradebook extends Component
     private function summary(): array
     {
         $entered = array_values(array_filter(
-            array_map(fn ($score) => ($score === null || $score === '') ? null : (float) $score, $this->scores),
+            array_map(fn ($score) => is_numeric($score) ? (float) $score : null, $this->scores),
             fn (?float $score) => $score !== null,
         ));
 
@@ -225,6 +286,10 @@ class Gradebook extends Component
         return view('livewire.teacher.gradebook', [
             'students' => $this->roster(),
             'summary' => $this->summary(),
+            'back' => $this->backLink(),
+            'byCoordination' => $this->managedByCoordination(),
+            'cycleClosed' => app(TermService::class)->isClosed($this->course->cycle_id),
+            'startTour' => $this->shouldStartTutorial('planilla'),
         ])->title($this->pageTitle());
     }
 }
