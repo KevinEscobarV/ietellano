@@ -22,7 +22,7 @@ afterEach(function () {
  *
  * @param  list<array<string, string>>  $rows
  */
-function matriculas(string $base, string $name, array $rows): void
+function matriculas(string $base, string $name, array $rows, string $dir = '2026-2'): void
 {
     $lines = [implode(';', array_keys($rows[0]))];
 
@@ -30,7 +30,8 @@ function matriculas(string $base, string $name, array $rows): void
         $lines[] = implode(';', array_values($row));
     }
 
-    File::put($base.DIRECTORY_SEPARATOR.'2026-2'.DIRECTORY_SEPARATOR.$name, implode("\n", $lines)."\n");
+    File::ensureDirectoryExists($base.DIRECTORY_SEPARATOR.$dir);
+    File::put($base.DIRECTORY_SEPARATOR.$dir.DIRECTORY_SEPARATOR.$name, implode("\n", $lines)."\n");
 }
 
 function importar(string $base): void
@@ -128,6 +129,35 @@ describe('códigos de curso', function () {
             ->and($courses['C6QUIM2S22026']->subject->code)->toBe('QUI');
     });
 
+    it('suma los cursos del módulo 2 al mismo ciclo sin duplicar estudiantes ni matrículas', function () {
+        matriculas($this->base, 'Ciclo51S2-2026.csv', [
+            estudiante('uno@iellano.com', '111', 'Ciclo51S22026', 'Ciclo 5-1', 'C51MATM1S22026'),
+        ]);
+        matriculas($this->base, 'Ciclo52S2-2026.csv', [
+            estudiante('dos@iellano.com', '222', 'Ciclo52S22026', 'Ciclo 5-2', 'C52MATM1S22026'),
+        ]);
+        matriculas($this->base, 'Ciclo51S2-2026 m2.csv', [
+            estudiante('uno@iellano.com', '111', 'Ciclo51S22026', 'Ciclo 5-1', 'C51MATM2S22026'),
+        ], 'SEM2-2026');
+        matriculas($this->base, 'Ciclo52S2-2026 m2.csv', [
+            estudiante('dos@iellano.com', '222', 'Ciclo52S22026', 'Ciclo 5-2', 'C52MATM2S22026'),
+        ], 'SEM2-2026');
+
+        importar($this->base);
+
+        $cycle = Cycle::where('code', 'Ciclo5S22026')->sole();
+        $courses = Course::with('group')->get()->keyBy('code');
+
+        expect(Cycle::count())->toBe(1)
+            ->and(Student::count())->toBe(2)
+            ->and(Enrollment::where('cycle_id', $cycle->id)->count())->toBe(2)
+            ->and($courses)->toHaveCount(4)
+            ->and($courses['C51MATM2S22026']->period)->toBe(2)
+            ->and($courses['C51MATM2S22026']->cycle_id)->toBe($cycle->id)
+            ->and($courses['C51MATM2S22026']->group->name)->toBe('Ciclo 5-1')
+            ->and($courses['C52MATM2S22026']->group->name)->toBe('Ciclo 5-2');
+    });
+
     it('sigue leyendo los códigos sin sufijo de los semestres anteriores', function () {
         matriculas($this->base, 'Ciclo6.csv', [
             estudiante('uno@iellano.com', '111', 'Ciclo6S12026', 'Ciclo 6', 'C6MATM2'),
@@ -157,6 +187,29 @@ describe('identidad del estudiante', function () {
         expect(Student::count())->toBe(1)
             ->and($student->fresh()->email)->toBe('mariana@gmail.com')
             ->and(Enrollment::where('student_id', $student->id)->count())->toBe(1);
+    });
+
+    it('reconoce por usuario de Moodle a quien en 2026-1 solo trae el correo de relleno', function () {
+        $student = Student::create([
+            'document' => '1118198961',
+            'first_name' => 'MARIANA',
+            'last_name' => 'PEÑA MARTINEZ',
+            'email' => 'mariana@gmail.com',
+            'username' => 'marianapena3a',
+        ]);
+
+        matriculas($this->base, 'Ciclo3A.csv', [
+            [...estudiante('null7@iellano.com', '', 'Ciclo3AS12026', 'Ciclo 3A', 'C3AMATM1'), 'username' => 'marianapena3a'],
+        ], 'Sistema de calificaciones Semipresencial/Estudiantes csv M1');
+        matriculas($this->base, 'Ciclo3B.csv', [
+            [...estudiante('mariana@gmail.com', '1118198961', 'Ciclo3BS22026', 'Ciclo 3B', 'C3BMATM1S22026'), 'username' => 'marianapena3a'],
+        ]);
+
+        importar($this->base);
+
+        expect(Student::count())->toBe(1)
+            ->and($student->fresh()->email)->toBe('mariana@gmail.com')
+            ->and(Enrollment::where('student_id', $student->id)->count())->toBe(2);
     });
 
     it('no mezcla a dos estudiantes distintos sin documento', function () {

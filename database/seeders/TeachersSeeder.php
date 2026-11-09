@@ -19,6 +19,7 @@ class TeachersSeeder extends Seeder
         'DOCENTES.xlsx',
         'DOCENTES MODULO2.xlsx',
         '2026-2/DOCENTES MODULO1 SEM2 2026.xlsx',
+        'SEM2-2026/DOCENTES MODULO2 SEM2 2026.xlsx',
     ];
 
     private int $assigned = 0;

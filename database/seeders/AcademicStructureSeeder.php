@@ -51,6 +51,7 @@ class AcademicStructureSeeder extends Seeder
         'Sistema de calificaciones Semipresencial/Estudiantes csv M2',
         'Sistema de calificaciones Semipresencial/Estudiantes csv con documentos M2',
         '2026-2',
+        'SEM2-2026',
     ];
 
     /**
@@ -260,18 +261,22 @@ class AcademicStructureSeeder extends Seeder
     private function resolveStudent(string $email, callable $value): Student
     {
         $document = $value('idnumber');
+        $username = $value('username');
 
         // El correo cambia de un semestre a otro: en 2026-1 varios entraron con
         // un placeholder nullN@iellano.com y este semestre ya traen el suyo. Es
-        // el documento el que identifica a la persona.
+        // el documento el que identifica a la persona. Los csv de 2026-1 sin
+        // columna de documento solo traen ese placeholder, y lo único que los
+        // une con el registro que ya tiene el correo real es el usuario de Moodle.
         $student = Student::where('email', $email)->first()
             ?? ($document !== null ? Student::where('document', $document)->first() : null)
+            ?? ($username !== null ? Student::where('username', $username)->first() : null)
             ?? new Student;
 
         $student->email = $email;
         $student->first_name = $value('firstname') ?? $student->first_name ?? '';
         $student->last_name = $value('lastname') ?? $student->last_name ?? '';
-        $student->username = $value('username') ?? $student->username;
+        $student->username = $username ?? $student->username;
         $student->phone = $value('phone1') ?? $student->phone;
         $student->city = $value('city') ?? $student->city;
         $student->country = $value('country') ?? $student->country;
