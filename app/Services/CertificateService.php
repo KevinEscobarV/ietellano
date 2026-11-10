@@ -242,13 +242,7 @@ class CertificateService
      */
     private function average(array $values): ?float
     {
-        $numbers = array_filter($values, fn ($value) => $value !== null);
-
-        if ($numbers === []) {
-            return null;
-        }
-
-        return round(array_sum($numbers) / count($numbers), 2);
+        return BoletinService::average($values);
     }
 
     /**

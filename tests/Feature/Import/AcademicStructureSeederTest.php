@@ -224,6 +224,21 @@ describe('identidad del estudiante', function () {
     });
 });
 
+describe('áreas', function () {
+    it('deja creadas las áreas del ciclo que acaba de importar', function () {
+        matriculas($this->base, 'Ciclo3B.csv', [
+            [...estudiante('uno@iellano.com', '111', 'Ciclo3BS22026', 'Ciclo 3B', 'C3BLENM1S22026'), 'course2' => 'C3BINGM1S22026', 'course3' => 'C3BMATM1S22026'],
+        ]);
+
+        importar($this->base);
+
+        $area = Cycle::where('code', 'Ciclo3BS22026')->sole()->areas()->with('subjects')->sole();
+
+        expect($area->name)->toBe('Humanidades')
+            ->and($area->subjects->pluck('code')->sort()->values()->all())->toBe(['ING', 'LEN']);
+    });
+});
+
 describe('boletín de ciclo completo', function () {
     it('enlaza el semestre 2 con el semestre 1 del mismo ciclo', function () {
         $primero = Cycle::create([

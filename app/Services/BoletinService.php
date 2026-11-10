@@ -292,7 +292,11 @@ class BoletinService
     /**
      * El promedio de las notas que hay, a dos decimales. Las que faltan no
      * cuentan. El consolidado lo usa para que sus cuentas den lo mismo que el
-     * boletín.
+     * boletín, y el certificado por lo mismo.
+     *
+     * La suma se redondea antes de dividir: sumar decimales en otro orden deja
+     * un residuo distinto (21.559999999999995 o 21.56) y, cuando el promedio
+     * cae justo en media centésima, un documento daría 2.69 y el otro 2.70.
      *
      * @param  list<float|string|null>  $values
      */
@@ -304,7 +308,7 @@ class BoletinService
             return null;
         }
 
-        return round(array_sum($numbers) / count($numbers), 2);
+        return round(round(array_sum($numbers), 6) / count($numbers), 2);
     }
 
     private function toFloat(float|string|null $value): ?float

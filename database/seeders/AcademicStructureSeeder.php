@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Area;
 use App\Models\Course;
 use App\Models\Cycle;
 use App\Models\Enrollment;
@@ -117,7 +116,8 @@ class AcademicStructureSeeder extends Seeder
 
         $this->normalizeCourseGroups();
         $this->linkPreviousCycles();
-        $this->seedAreas();
+
+        app(DefaultAreasSeeder::class)->run();
     }
 
     private function seedSubjects(): void
@@ -353,24 +353,5 @@ class AcademicStructureSeeder extends Seeder
                 $cycle->update(['previous_cycle_id' => $previous->id]);
             }
         }
-    }
-
-    private function seedAreas(): void
-    {
-        $fisica = $this->subjects['FIS'] ?? null;
-        $quimica = $this->subjects['QUI'] ?? null;
-
-        if ($fisica === null || $quimica === null) {
-            return;
-        }
-
-        Cycle::query()->whereIn('level', ['5', '6'])->each(function (Cycle $cycle) use ($fisica, $quimica): void {
-            $area = Area::firstOrCreate(
-                ['cycle_id' => $cycle->id, 'name' => 'Ciencias Naturales'],
-                ['code' => 'CN', 'display_order' => 0],
-            );
-
-            $area->subjects()->syncWithoutDetaching([$fisica->id, $quimica->id]);
-        });
     }
 }

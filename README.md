@@ -108,7 +108,7 @@ Cycle ── EditWindow ── Course   (permiso con plazo para editar un ciclo 
 
 - Un **ciclo** es un semestre de un nivel (`Ciclo 3B · 2026-2`). Puede apuntar al ciclo anterior para armar boletines de dos semestres.
 - Un **curso** es la combinación materia + grupo + periodo. Un curso sin grupo cubre a todo el ciclo.
-- Las **áreas** agrupan materias para que el boletín muestre una línea por área con sus componentes.
+- Las **áreas** agrupan materias para que el boletín muestre una línea por área con sus componentes. `DefaultAreasSeeder` crea en cada ciclo las dos que promedia el certificado —Ciencias Naturales (Física + Química) y Humanidades (Lengua + Inglés)—, para que boletín, consolidado y certificado den la misma nota. `AcademicStructureSeeder` lo llama al final; también corre solo.
 - Escala de **0 a 5**, se aprueba con **3.0**. Desempeño según el Decreto 1290: Superior ≥ 4.6 · Alto ≥ 4.0 · Básico ≥ 3.0 · Bajo por debajo.
 
 ### Quién aprueba el ciclo
