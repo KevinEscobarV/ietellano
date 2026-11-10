@@ -40,7 +40,7 @@ class XlsxWriter
     private const MAX_SHEET_NAME = 31;
 
     /**
-     * @var list<array{name: string, xml: string, filter: ?string}>
+     * @var list<array{name: string, xml: string, filter: ?string, repeat: ?array{0: int, 1: int}}>
      */
     private array $sheets = [];
 
@@ -73,8 +73,13 @@ class XlsxWriter
      * por número de fila (desde 1), freeze son las [columnas, filas] fijas y
      * filter un rango como "A6:P30".
      *
+     * Para imprimir: fit encoge la hoja hasta que el ancho quepa en una página
+     * (y la centra); landscape además la pone horizontal; repeat son las filas
+     * [desde, hasta] que se repiten arriba de cada página, como el encabezado
+     * de la tabla.
+     *
      * @param  list<list<string|int|float|null|array{value: string|int|float|null, style: string}>>  $rows
-     * @param  array{widths?: array<int, float|int>, heights?: array<int, float|int>, freeze?: array{0: int, 1: int}, filter?: string, merge?: list<string>, landscape?: bool}  $options
+     * @param  array{widths?: array<int, float|int>, heights?: array<int, float|int>, freeze?: array{0: int, 1: int}, filter?: string, merge?: list<string>, fit?: bool, landscape?: bool, repeat?: array{0: int, 1: int}}  $options
      */
     public function addSheet(string $name, array $rows, array $options = []): static
     {
@@ -82,6 +87,7 @@ class XlsxWriter
             'name' => $this->uniqueName($name),
             'xml' => $this->sheetXml($rows, $options, $this->sheets === []),
             'filter' => $options['filter'] ?? null,
+            'repeat' => $options['repeat'] ?? null,
         ];
 
         return $this;
@@ -119,12 +125,13 @@ class XlsxWriter
     private function sheetXml(array $rows, array $options, bool $first): string
     {
         $landscape = $options['landscape'] ?? false;
+        $fit = ($options['fit'] ?? false) || $landscape;
         $heights = $options['heights'] ?? [];
 
         $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'."\n"
             .'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">';
 
-        if ($landscape) {
+        if ($fit) {
             $xml .= '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>';
         }
 
@@ -178,10 +185,14 @@ class XlsxWriter
             $xml .= '</mergeCells>';
         }
 
+        if ($fit) {
+            $xml .= '<printOptions horizontalCentered="1"/>';
+        }
+
         $xml .= '<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>';
 
-        if ($landscape) {
-            $xml .= '<pageSetup paperSize="1" orientation="landscape" fitToWidth="1" fitToHeight="0"/>';
+        if ($fit) {
+            $xml .= '<pageSetup paperSize="1" orientation="'.($landscape ? 'landscape' : 'portrait').'" fitToWidth="1" fitToHeight="0"/>';
         }
 
         return $xml.'</worksheet>';
@@ -298,12 +309,18 @@ class XlsxWriter
         foreach ($this->sheets as $index => $sheet) {
             $name = $this->escape($sheet['name']);
             $sheets .= '<sheet name="'.$name.'" sheetId="'.($index + 1).'" r:id="rId'.($index + 1).'"/>';
+            $quoted = $this->escape("'".str_replace("'", "''", $sheet['name'])."'");
+
+            // Excel guarda el filtro y las filas que se repiten al imprimir con
+            // estos nombres reservados.
+            if ($sheet['repeat'] !== null) {
+                [$from, $to] = $sheet['repeat'];
+                $names .= '<definedName name="_xlnm.Print_Titles" localSheetId="'.$index.'">'.$quoted.'!$'.$from.':$'.$to.'</definedName>';
+            }
 
             if ($sheet['filter'] !== null) {
-                // Excel guarda el rango del filtro con este nombre reservado.
                 $range = preg_replace_callback('/([A-Z]+)(\d+)/', fn (array $match) => '$'.$match[1].'$'.$match[2], $sheet['filter']);
-                $quoted = "'".str_replace("'", "''", $sheet['name'])."'";
-                $names .= '<definedName name="_xlnm._FilterDatabase" localSheetId="'.$index.'" hidden="1">'.$this->escape($quoted).'!'.$range.'</definedName>';
+                $names .= '<definedName name="_xlnm._FilterDatabase" localSheetId="'.$index.'" hidden="1">'.$quoted.'!'.$range.'</definedName>';
             }
         }
 
@@ -365,15 +382,18 @@ class XlsxWriter
         ];
 
         $center = '<alignment horizontal="center" vertical="center"/>';
+        // Los renglones de texto (subtítulo, notas, sello) van en celdas
+        // combinadas a lo ancho de la tabla y bajan de línea si no caben.
+        $wrap = '<alignment vertical="top" wrapText="1"/>';
         $xf = fn (int $numFmt, int $font, int $fill, int $border, string $alignment = '') => '<xf numFmtId="'.$numFmt.'" fontId="'.$font.'" fillId="'.$fill.'" borderId="'.$border.'" xfId="0"'
             .($numFmt > 0 ? ' applyNumberFormat="1"' : '').($font > 0 ? ' applyFont="1"' : '').($fill > 0 ? ' applyFill="1"' : '').($border > 0 ? ' applyBorder="1"' : '')
             .($alignment !== '' ? ' applyAlignment="1">'.$alignment.'</xf>' : '/>');
 
         $cellXfs = [
             $xf(0, 0, 0, 0),                    // default
-            $xf(0, 2, 0, 0),                    // title
-            $xf(0, 1, 0, 0),                    // subtitle
-            $xf(0, 3, 0, 0),                    // muted
+            $xf(0, 2, 0, 0, '<alignment vertical="center"/>'), // title
+            $xf(0, 1, 0, 0, $wrap),             // subtitle
+            $xf(0, 3, 0, 0, $wrap),             // muted
             $xf(0, 1, 2, 1, '<alignment horizontal="center" vertical="center" wrapText="1"/>'), // header
             $xf(0, 0, 0, 1, '<alignment vertical="center"/>'), // text
             $xf(0, 0, 0, 1, $center),           // center
@@ -385,8 +405,8 @@ class XlsxWriter
             $xf(1, 4, 3, 1, $center),           // integer-fail
             $xf(0, 1, 0, 1, '<alignment vertical="center"/>'), // bold
             $xf(164, 1, 0, 1, $center),         // bold-score
-            $xf(0, 7, 0, 0),                    // seal-provisional
-            $xf(0, 8, 0, 0),                    // seal-definitive
+            $xf(0, 7, 0, 0, $wrap),             // seal-provisional
+            $xf(0, 8, 0, 0, $wrap),             // seal-definitive
         ];
 
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'."\n"

@@ -19,6 +19,11 @@ class ConsolidadoExporter
     public const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
     /**
+     * Los estilos de los renglones que son solo texto, sin tabla.
+     */
+    private const TEXT_ROWS = ['title', 'subtitle', 'muted', 'seal-provisional', 'seal-definitive'];
+
+    /**
      * La tabla del ciclo y una hoja con la nota de cada módulo (o de cada
      * semestre) por materia. En el año, una hoja más con quienes cursaron el
      * primer semestre y no siguieron. Devuelve la ruta de un archivo temporal.
@@ -157,6 +162,46 @@ class ConsolidadoExporter
         ])->setPaper('letter', 'landscape');
     }
 
+    /**
+     * Agrega la hoja con cada renglón de texto (título, sello, resumen, notas)
+     * combinado a lo ancho de la tabla y con el alto que necesita. Si no, el
+     * texto largo se sale de la tabla y al imprimir queda cortado en el
+     * margen.
+     *
+     * @param  list<list<mixed>>  $rows
+     * @param  list<float|int>  $widths
+     * @param  array<string, mixed>  $options
+     */
+    private function sheet(XlsxWriter $book, string $name, array $rows, array $widths, array $options): void
+    {
+        $last = XlsxWriter::column(count($widths) - 1);
+        // El ancho de Excel se mide en ceros de Calibri 11; un texto normal
+        // mete algo más de un carácter por unidad.
+        $perLine = max(1, array_sum($widths) * 1.1);
+        $merge = $options['merge'] ?? [];
+        $heights = $options['heights'] ?? [];
+
+        foreach (array_values($rows) as $index => $cells) {
+            $cell = $cells[0] ?? null;
+
+            if (count($cells) !== 1 || ! is_array($cell) || ! in_array($cell['style'], self::TEXT_ROWS, true)) {
+                continue;
+            }
+
+            $number = $index + 1;
+            $merge[] = "A{$number}:{$last}{$number}";
+            $lines = max(1, (int) ceil(mb_strlen((string) $cell['value']) / $perLine));
+
+            if ($cell['style'] === 'title') {
+                $heights[$number] ??= 20;
+            } elseif ($lines > 1) {
+                $heights[$number] ??= $lines * 15;
+            }
+        }
+
+        $book->addSheet($name, $rows, [...$options, 'widths' => $widths, 'merge' => $merge, 'heights' => $heights]);
+    }
+
     private function save(XlsxWriter $book): string
     {
         $path = (string) tempnam(sys_get_temp_dir(), 'con');
@@ -266,12 +311,12 @@ class ConsolidadoExporter
 
         $widths = [...$widths, ...array_fill(0, count($c['columns']), 12), 10, 12, 8, 8, 8];
 
-        $book->addSheet($name, $rows, [
-            'widths' => $widths,
+        $this->sheet($book, $name, $rows, $widths, [
             'heights' => [$headerRow => 32],
             'freeze' => [2, $headerRow],
             'filter' => 'A'.$headerRow.':'.XlsxWriter::column(count($header) - 1).max($lastDataRow, $headerRow),
             'landscape' => true,
+            'repeat' => [$headerRow, $headerRow],
         ]);
     }
 
@@ -340,11 +385,11 @@ class ConsolidadoExporter
         $rows[] = [];
         $rows[] = [XlsxWriter::cell(__('En rojo, las notas por debajo de :score.', ['score' => number_format(BoletinService::PASSING_SCORE, 1)]), 'muted')];
 
-        $book->addSheet($name, $rows, [
-            'widths' => [5, 36, ...($c['showGroup'] ? [13] : []), ...array_fill(0, count($c['columns']) * 3, 7)],
+        $this->sheet($book, $name, $rows, [5, 36, ...($c['showGroup'] ? [13] : []), ...array_fill(0, count($c['columns']) * 3, 7)], [
             'freeze' => [2, $top + 1],
             'merge' => $merge,
             'landscape' => true,
+            'repeat' => [$top, $top + 1],
         ]);
     }
 
@@ -394,11 +439,11 @@ class ConsolidadoExporter
         $rows[] = [];
         $rows[] = [XlsxWriter::cell(__('En los ciclos de un año (3 y 4), el segundo semestre se lee con el año completo: la nota de cada materia es el promedio de los dos semestres.'), 'muted')];
 
-        $book->addSheet(__('Resumen'), $rows, [
-            'widths' => [16, 22, 12, 11, 12, 13, 11, 11, 13, 13, 34, 16, 13],
+        $this->sheet($book, __('Resumen'), $rows, [16, 22, 12, 11, 12, 13, 11, 11, 13, 13, 34, 16, 13], [
             'heights' => [$headerRow => 32],
             'freeze' => [1, $headerRow],
             'landscape' => true,
+            'repeat' => [$headerRow, $headerRow],
         ]);
     }
 
@@ -487,11 +532,14 @@ class ConsolidadoExporter
             ]), 'muted')];
         }
 
-        $book->addSheet(trim($section['subject'].' '.($section['group'] ?? '')), $rows, [
-            'widths' => $year ? [5, 36, 14, 11, 11, 11, 11, 10, 14, 8] : [5, 36, 14, 11, 11, 11, 12, 8],
+        // Vertical y encogida al ancho de la página: con el año son diez
+        // columnas y, sin esto, las últimas se iban a una segunda hoja.
+        $this->sheet($book, trim($section['subject'].' '.($section['group'] ?? '')), $rows, $year ? [5, 34, 13, 9, 9, 9, 9, 9, 12, 7] : [5, 36, 14, 11, 11, 11, 12, 8], [
             'heights' => [$headerRow => $year ? 32 : 20],
             'freeze' => [2, $headerRow],
             'filter' => 'A'.$headerRow.':'.XlsxWriter::column(count($header) - 1).max($lastDataRow, $headerRow),
+            'fit' => true,
+            'repeat' => [$headerRow, $headerRow],
         ]);
     }
 
@@ -602,11 +650,12 @@ class ConsolidadoExporter
             ];
         }
 
-        $book->addSheet(__('No siguieron en :level', ['level' => $second]), $rows, [
-            'widths' => [5, 36, 14, 14, 14, 12],
+        $this->sheet($book, __('No siguieron en :level', ['level' => $second]), $rows, [5, 36, 14, 14, 14, 12], [
             'heights' => [$headerRow => 32],
             'freeze' => [2, $headerRow],
             'filter' => 'A'.$headerRow.':F'.(count($rows)),
+            'fit' => true,
+            'repeat' => [$headerRow, $headerRow],
         ]);
     }
 

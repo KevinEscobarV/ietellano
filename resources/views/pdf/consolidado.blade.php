@@ -7,8 +7,9 @@
 <head>
     <meta charset="utf-8">
     <style>
-        @page { margin: 26px 30px; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @page { margin: 34px 38px; }
+        body { margin: 0; padding: 0; }
+        div, table, th, td, span { box-sizing: border-box; }
         body { font-family: DejaVu Sans, sans-serif; color: #27272a; font-size: 9px; }
         .page-break { page-break-before: always; }
 
@@ -185,7 +186,7 @@
                                 @endif
                             </td>
                             @if ($c['showGroup'])
-                                <td>{{ $row['group'] ?? '—' }}</td>
+                                <td style="white-space: nowrap;">{{ $row['group'] ?? '—' }}</td>
                             @endif
                             @foreach ($c['columns'] as $column)
                                 @php $cell = $row['cells'][$column['name']] ?? null; @endphp

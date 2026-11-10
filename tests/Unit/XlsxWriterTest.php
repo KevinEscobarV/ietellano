@@ -89,6 +89,21 @@ it('deja fijo el encabezado y el filtro con su rango nombrado', function () {
         ->toContain('<definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">&apos;Ciclo 5&apos;!$A$6:$F$20</definedName>');
 });
 
+it('prepara la hoja para imprimir: al ancho de la página, centrada y con el encabezado en cada hoja', function () {
+    $parts = xlsxParts((new XlsxWriter)
+        ->addSheet('Vertical', [['a']], ['fit' => true, 'repeat' => [6, 6]])
+        ->addSheet('Horizontal', [['b']], ['landscape' => true])
+        ->addSheet('Normal', [['c']]));
+
+    expect($parts['xl/worksheets/sheet1.xml'])
+        ->toContain('<pageSetUpPr fitToPage="1"/>')
+        ->toContain('<printOptions horizontalCentered="1"/>')
+        ->toContain('<pageSetup paperSize="1" orientation="portrait" fitToWidth="1" fitToHeight="0"/>')
+        ->and($parts['xl/worksheets/sheet2.xml'])->toContain('orientation="landscape" fitToWidth="1"')
+        ->and($parts['xl/worksheets/sheet3.xml'])->not->toContain('fitToPage')
+        ->and($parts['xl/workbook.xml'])->toContain('<definedName name="_xlnm.Print_Titles" localSheetId="0">&apos;Vertical&apos;!$6:$6</definedName>');
+});
+
 it('limpia los nombres de hoja que Excel no admite y no los repite', function () {
     $workbook = simplexml_load_string(xlsxParts((new XlsxWriter)
         ->addSheet('Matemáticas 5/1: [notas]?', [])

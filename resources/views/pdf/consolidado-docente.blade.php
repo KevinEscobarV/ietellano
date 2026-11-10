@@ -7,8 +7,9 @@
 <head>
     <meta charset="utf-8">
     <style>
-        @page { margin: 30px 36px; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        @page { margin: 40px 44px; }
+        body { margin: 0; padding: 0; }
+        div, table, th, td, span { box-sizing: border-box; }
         body { font-family: DejaVu Sans, sans-serif; color: #27272a; font-size: 9.5px; }
         .page-break { page-break-before: always; }
 

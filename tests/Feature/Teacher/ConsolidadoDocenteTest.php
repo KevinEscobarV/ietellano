@@ -128,7 +128,10 @@ it('el docente descarga su consolidado en Excel', function () {
     expect(array_keys($sheets))->toBe(['Matematicas Grupo A'])
         ->and($sheets['Matematicas Grupo A'])->toContain('GOMEZ ANA', 'Docente: Juan Perez', '<v>3.5</v>', 'PROVISIONAL')
         ->not->toContain('ZAPATA ZOE')
-        ->not->toContain('Lenguaje');
+        ->not->toContain('Lenguaje')
+        // Al imprimir cabe en el ancho de la hoja y los renglones de texto no
+        // se salen de la tabla.
+        ->and($sheets['Matematicas Grupo A'])->toContain('<pageSetUpPr fitToPage="1"/>', 'orientation="portrait"', '<mergeCell ref="A1:H1"/>', '<mergeCell ref="A3:H3"/>');
 });
 
 it('y en PDF', function () {
