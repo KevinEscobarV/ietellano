@@ -1,35 +1,57 @@
 <!DOCTYPE html>
-{{-- Comparte el mundo visual de la portada: ver resources/css/llano.css. --}}
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark scheme-dark bg-llano-void antialiased">
+{{-- Las pantallas de acceso visten como el panel: lienzo gris, tarjeta blanca
+     y, a un lado, la misma portada azul del Inicio (resources/css/panel.css).
+     Siguen el tema claro/oscuro del dispositivo, igual que el panel. --}}
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="antialiased">
     <head>
         @include('partials.head')
     </head>
-    <body class="flex min-h-svh flex-col items-center justify-center gap-6 overflow-x-hidden bg-llano-void px-5 py-10 font-sans text-llano-mist">
-        <x-llano-backdrop />
+    <body class="flex min-h-svh flex-col items-center justify-center gap-6 bg-zinc-100 px-4 py-8 font-sans sm:px-6 dark:bg-zinc-950">
+        <main class="panel-card dash-rise grid w-full max-w-md overflow-hidden rounded-2xl lg:max-w-4xl lg:grid-cols-[5fr_6fr]">
+            {{-- La cara de la institución; en pantallas angostas se resume arriba del formulario. --}}
+            <div class="dash-hero relative hidden flex-col justify-between gap-10 overflow-hidden p-10 text-white lg:flex">
+                <div class="dash-hero-glow" aria-hidden="true"><b></b><b></b><b></b></div>
 
-        <main class="llano-card relative z-10 flex w-[min(440px,100%)] flex-col gap-7 rounded-3xl px-[clamp(24px,6vw,38px)] pt-[clamp(30px,6vw,42px)] pb-[clamp(26px,5vw,34px)]">
-            <a href="{{ route('home') }}" class="animate-llano-rise flex flex-col items-center gap-3 [animation-delay:.3s]" wire:navigate>
-                <span class="relative">
-                    <span class="pointer-events-none absolute -inset-[35%] rounded-full bg-[radial-gradient(circle,rgb(31_190_123/.22)_0%,transparent_68%)]" aria-hidden="true"></span>
+                <a href="{{ route('home') }}" class="relative flex items-center gap-3" wire:navigate>
                     <img
                         src="{{ asset('images/logo-web.png') }}"
                         width="400"
                         height="402"
                         alt="{{ __('Escudo de la institución') }}"
-                        class="relative h-auto w-16 drop-shadow-[0_8px_22px_rgb(0_0_0/.55)]"
+                        class="h-auto w-12 drop-shadow-[0_6px_16px_rgb(0_0_0/.35)]"
                     >
-                </span>
-                <span class="llano-title text-xl font-bold tracking-tight">IETE del Llano</span>
-            </a>
+                    <span class="text-lg font-bold tracking-tight">IETE del Llano</span>
+                </a>
 
-            <div class="llano-divider" aria-hidden="true"></div>
+                <div class="relative">
+                    <h2 class="text-3xl leading-tight font-bold tracking-tight text-balance">{{ __('Sistema académico') }}</h2>
+                    <p class="mt-3 leading-relaxed text-pretty text-white/80">
+                        {{ __('Notas, asistencia, boletines y certificados de estudio, en un solo lugar.') }}
+                    </p>
+                </div>
 
-            <div class="animate-llano-rise flex flex-col gap-6 [animation-delay:.42s]">
+                <p class="relative text-[10px] font-medium tracking-[.14em] whitespace-nowrap text-white/60 uppercase">
+                    Responsabilidad &middot; Compromiso &middot; Respeto
+                </p>
+            </div>
+
+            <div class="flex flex-col justify-center gap-6 p-6 sm:p-10">
+                <a href="{{ route('home') }}" class="flex flex-col items-center gap-2 lg:hidden" wire:navigate>
+                    <img
+                        src="{{ asset('images/logo-web.png') }}"
+                        width="400"
+                        height="402"
+                        alt="{{ __('Escudo de la institución') }}"
+                        class="h-auto w-14"
+                    >
+                    <span class="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100">IETE del Llano</span>
+                </a>
+
                 {{ $slot }}
             </div>
         </main>
 
-        <p class="animate-llano-rise relative z-10 text-[10.5px] font-medium tracking-[.28em] text-llano-haze/60 uppercase [animation-delay:.6s]">
+        <p class="text-[10.5px] font-medium tracking-[.28em] text-zinc-400 uppercase lg:hidden dark:text-zinc-500">
             Responsabilidad &middot; Compromiso &middot; Respeto
         </p>
 

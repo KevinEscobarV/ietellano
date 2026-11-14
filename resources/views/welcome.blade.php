@@ -9,7 +9,7 @@
 
     <main class="llano-card relative z-10 flex w-[min(492px,100%)] flex-col items-center gap-6 rounded-3xl px-[clamp(24px,6vw,40px)] pt-[clamp(32px,6vw,46px)] pb-[clamp(28px,5vw,36px)] text-center">
         <div class="animate-llano-rise relative [animation-delay:.34s]">
-            <span class="pointer-events-none absolute -inset-[30%] rounded-full bg-[radial-gradient(circle,rgb(31_190_123/.22)_0%,transparent_68%)]" aria-hidden="true"></span>
+            <span class="pointer-events-none absolute -inset-[30%] rounded-full bg-[radial-gradient(circle,rgb(79_125_255/.25)_0%,transparent_68%)]" aria-hidden="true"></span>
             <img
                 src="{{ asset('images/logo-web.png') }}"
                 width="400"
@@ -40,7 +40,7 @@
         <div class="animate-llano-rise flex w-full flex-col gap-3 [animation-delay:.76s]">
             <a
                 href="{{ auth()->check() ? route('dashboard') : route('login') }}"
-                class="llano-button flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-3.5 text-[15px] font-semibold tracking-tight text-[#04120B] focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-llano-emerald"
+                class="llano-button flex w-full items-center justify-center gap-2.5 rounded-xl px-6 py-3.5 text-[15px] font-semibold tracking-tight text-white focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-llano-emerald"
             >
                 {{ auth()->check() ? 'Ir al panel' : 'Ingresar al sistema' }}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

@@ -53,7 +53,7 @@
         @endif
 
         {{-- El estudiante no tiene cuenta aquí: su boletín se consulta con el documento. --}}
-        <div class="space-x-1 text-center text-sm text-llano-haze">
+        <div class="space-x-1 text-center text-sm text-zinc-500 dark:text-zinc-400">
             <span>{{ __('¿Eres estudiante?') }}</span>
             <flux:link :href="route('consulta.lookup')" wire:navigate>{{ __('Consulta tu boletín') }}</flux:link>
         </div>
