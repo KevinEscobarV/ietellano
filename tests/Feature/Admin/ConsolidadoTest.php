@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\BoletinService;
 use App\Services\ConsolidadoExporter;
 use App\Services\ConsolidadoService;
+use App\Support\XlsxWriter;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 
@@ -154,13 +155,15 @@ describe('el consolidado del ciclo', function () {
             'average' => 3.41,
             'performance' => 'Básico',
             'all_passed' => 1,
-            'failing' => [1 => 2, 2 => 0, 3 => 0],
+            // Se cuenta por materia, como el certificado: Beto pierde Física
+            // (2.0) y Química (2.5), no una sola Ciencias Naturales.
+            'failing' => [1 => 1, 2 => 1, 3 => 0],
             'failing_total' => 2,
             'levels' => ['Superior' => 0, 'Alto' => 1, 'Básico' => 1, 'Bajo' => 1],
             'pending_students' => 1,
             'pending_cells' => 1,
         ])
-            ->and(array_column($summary['hardest'], 'name'))->toEqualCanonicalizing(['Ciencias Naturales', 'Lengua Castellana'])
+            ->and(array_column($summary['hardest'], 'name'))->toEqualCanonicalizing(['Física', 'Química', 'Lengua Castellana'])
             ->and($consolidado['stats']['Matemáticas'])->toMatchArray(['students' => 3, 'average' => 3.83, 'passed' => 3, 'failed' => 0, 'pending' => 1])
             ->and($consolidado['stats']['Proyecto de Vida']['students'])->toBe(1);
     });
@@ -212,7 +215,61 @@ describe('el consolidado del ciclo', function () {
             ->and($consolidado['rows'])->toHaveCount(3)
             ->and($consolidado['showGroup'])->toBeTrue();
     });
+});
 
+describe('por área o por materia', function () {
+    it('por materia abre cada área en sus materias, juntas y bajo su nombre', function () {
+        $consolidado = ($this->consolidado)('definitiva', false, null, 'nombre', 'materias');
+        $beto = ($this->row)($consolidado, $this->beto);
+
+        expect($consolidado['by'])->toBe('materias')
+            ->and(array_column($consolidado['columns'], 'name'))->toBe(['Física', 'Química', 'Lengua Castellana', 'Matemáticas', 'Proyecto de Vida'])
+            ->and($consolidado['column_groups'])->toBe([
+                ['area' => 'Ciencias Naturales', 'span' => 2],
+                ['area' => null, 'span' => 1],
+                ['area' => null, 'span' => 1],
+                ['area' => null, 'span' => 1],
+            ])
+            ->and($beto['cells']['Física'])->toMatchArray(['score' => 2.0, 'failed' => true])
+            ->and($beto['cells']['Química'])->toMatchArray(['score' => 2.5, 'failed' => true])
+            ->and($consolidado['stats']['Física'])->toMatchArray(['students' => 3, 'failed' => 1]);
+    });
+
+    it('el promedio, el puesto y el resumen no cambian con la lectura', function () {
+        $areas = ($this->consolidado)();
+        $subjects = ($this->consolidado)('definitiva', false, null, 'nombre', 'materias');
+
+        expect(array_column($subjects['rows'], 'average'))->toBe(array_column($areas['rows'], 'average'))
+            ->and(array_column($subjects['rows'], 'rank'))->toBe(array_column($areas['rows'], 'rank'))
+            ->and(array_column($subjects['rows'], 'failed'))->toBe(array_column($areas['rows'], 'failed'))
+            ->and($subjects['summary'])->toBe($areas['summary']);
+    });
+
+    it('el área que aprueba con una materia perdida dice cuál', function () {
+        // Ana: Física 2.0 y Química 4.5 dan Ciencias Naturales 3.25.
+        Grade::where('student_id', $this->ana->id)->whereIn('course_id', [$this->courses['FIS1']->id, $this->courses['FIS2']->id])->update(['score' => 2.0]);
+        Grade::where('student_id', $this->ana->id)->whereIn('course_id', [$this->courses['QUI1']->id, $this->courses['QUI2']->id])->update(['score' => 4.5]);
+
+        $ana = ($this->row)(($this->consolidado)(), $this->ana);
+
+        expect($ana['cells']['Ciencias Naturales'])->toMatchArray([
+            'score' => 3.25,
+            'failed' => false,
+            'hides_loss' => true,
+            'lost' => [['name' => 'Física', 'score' => 2.0]],
+        ])
+            // Lengua y Física: el área aprobada no tapa la materia perdida.
+            ->and($ana['failed'])->toBe(2);
+    });
+
+    it('un ciclo sin áreas se lee igual de las dos formas', function () {
+        Area::query()->delete();
+
+        $consolidado = ($this->consolidado)('definitiva', false, null, 'nombre', 'materias');
+
+        expect($consolidado['has_areas'])->toBeFalse()
+            ->and($consolidado['by'])->toBe('areas');
+    });
 });
 
 /**
@@ -374,8 +431,8 @@ describe('ciclos de un año (3A y 3B)', function () {
         $sheets = consolidadoSheets($path);
         unlink($path);
 
-        expect(array_keys($sheets))->toBe(['Consolidado', 'Detalle por semestre', 'No siguieron en 3B'])
-            ->and($sheets['Consolidado'])->toContain('Cursó 3A', 'Definitivas del año', '<v>3.75</v>')
+        expect(array_keys($sheets))->toBe(['Por área', 'Por materia', 'Detalle por semestre', 'No siguieron en 3B'])
+            ->and($sheets['Por área'])->toContain('Cursó 3A', 'Definitivas del año', '<v>3.75</v>')
             ->not->toContain('DUARTE DIANA')
             ->and($sheets['No siguieron en 3B'])->toContain('DUARTE DIANA', '<v>1.5</v>');
 
@@ -450,6 +507,17 @@ describe('la pantalla', function () {
             ->assertViewHas('consolidado', fn (array $c) => ! $c['year'] && $c['yearParts'] === null && $c['continuesIn'] === null);
     });
 
+    it('pasa a ver por materia y descarga lo mismo', function () {
+        Livewire::actingAs($this->admin)
+            ->test(Consolidados::class)
+            ->assertSee('Por materia')
+            ->set('by', 'materias')
+            ->assertViewHas('consolidado', fn (array $c) => $c['by'] === 'materias')
+            ->assertViewHas('downloadParams', ['por' => 'materias'])
+            ->assertSeeHtml('colspan="2"')
+            ->assertSee('Física');
+    });
+
     it('cambiar de ciclo suelta el grupo', function () {
         $other = Cycle::create(['code' => 'C6-2026-2', 'level' => '6', 'semester' => 2, 'year' => 2026, 'name' => 'Ciclo 6']);
 
@@ -481,9 +549,36 @@ describe('descargas', function () {
         $sheets = consolidadoSheets($path);
         unlink($path);
 
-        expect(array_keys($sheets))->toBe(['Consolidado', 'Detalle por módulo'])
-            ->and($sheets['Consolidado'])->toContain('AREVALO ANA', 'PROVISIONAL', 'Ciencias Naturales', '<v>4.5</v>')
-            ->and($sheets['Detalle por módulo'])->toContain('<v>2.4</v>');
+        // Las dos lecturas van siempre, sin importar cuál se ve en pantalla.
+        expect(array_keys($sheets))->toBe(['Por área', 'Por materia', 'Detalle por módulo'])
+            ->and($sheets['Por área'])->toContain('AREVALO ANA', 'PROVISIONAL', 'Ciencias Naturales', '<v>4.5</v>')
+            ->not->toContain('>Física<')
+            // Física y Química bajo «Ciencias Naturales», combinada sobre las dos.
+            ->and($sheets['Por materia'])->toContain('>Física<', '>Química<', '>Ciencias Naturales<', '<mergeCell ref="E6:F6"/>')
+            ->and($sheets['Detalle por módulo'])->toContain('<v>2.4</v>', '>Física<');
+    });
+
+    it('en el Excel por área, en amarillo el área que aprueba con una materia perdida', function () {
+        // Ana: Física 2.0 y Química 4.5 dan Ciencias Naturales 3.25.
+        Grade::where('student_id', $this->ana->id)->whereIn('course_id', [$this->courses['FIS1']->id, $this->courses['FIS2']->id])->update(['score' => 2.0]);
+        Grade::where('student_id', $this->ana->id)->whereIn('course_id', [$this->courses['QUI1']->id, $this->courses['QUI2']->id])->update(['score' => 4.5]);
+
+        $response = $this->actingAs($this->admin)
+            ->get(route('admin.consolidados.download', ['cycle' => $this->cycle->id, 'formato' => 'xlsx']))
+            ->assertOk();
+
+        $path = $response->baseResponse->getFile()->getPathname();
+        $sheets = consolidadoSheets($path);
+        unlink($path);
+
+        expect($sheets['Por área'])->toContain('s="'.XlsxWriter::STYLES['score-warn'].'"><v>3.25</v>', 'En amarillo');
+    });
+
+    it('el PDF sale con la lectura de la pantalla', function () {
+        $this->actingAs($this->admin)
+            ->get(route('admin.consolidados.download', ['cycle' => $this->cycle->id, 'formato' => 'pdf', 'por' => 'materias']))
+            ->assertOk()
+            ->assertDownload('consolidado-ciclo-5-2026-2-por-materia.pdf');
     });
 
     it('el archivo dice qué se descargó', function () {

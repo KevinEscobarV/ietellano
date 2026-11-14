@@ -22,12 +22,16 @@ class Boletines extends Component
     use BrowsesStudentsByTerm;
     use ShowsTutorials;
 
-    #[Url(as: 'dos', except: false)]
-    public bool $bothSemesters = false;
+    /**
+     * Qué notas lleva el boletín: un módulo, el semestre o, en 3B y 4B, el
+     * año completo (BoletinService::SPANS).
+     */
+    #[Url(as: 'notas', except: 'semestre')]
+    public string $span = 'semestre';
 
     protected function resetStudent(): void
     {
-        $this->reset(['studentId', 'groupId', 'search', 'bothSemesters']);
+        $this->reset(['studentId', 'groupId', 'search', 'span']);
     }
 
     /**
@@ -42,12 +46,14 @@ class Boletines extends Component
     {
         $data = $this->browserData($term);
         $cycle = $data['selected'];
-        $hasPrevious = (bool) $cycle?->previous_cycle_id;
+        $span = $cycle ? BoletinService::span($this->span, $cycle) : 'semestre';
 
         return view('livewire.admin.boletines', [
             ...$data,
-            'boletin' => $data['student'] ? $service->generate($data['student'], $cycle, $this->bothSemesters && $hasPrevious) : null,
-            'hasPrevious' => $hasPrevious,
+            'boletin' => $data['student'] ? $service->forSpan($data['student'], $cycle, $span) : null,
+            'spans' => $cycle ? BoletinService::spans($cycle) : [],
+            'currentSpan' => $span,
+            'downloadParams' => $span !== 'semestre' ? ['notas' => $span] : [],
             'passingScore' => BoletinService::PASSING_SCORE,
             'startTour' => $this->shouldStartTutorial('boletines'),
         ]);

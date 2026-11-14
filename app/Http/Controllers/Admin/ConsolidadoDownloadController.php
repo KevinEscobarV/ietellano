@@ -27,6 +27,7 @@ class ConsolidadoDownloadController extends Controller
             $request->query('alcance', 'anio') !== 'semestre',
             $request->integer('grupo') ?: null,
             (string) $request->query('orden', 'nombre'),
+            (string) $request->query('por', 'areas'),
         );
 
         if ($format === 'pdf') {
@@ -41,20 +42,21 @@ class ConsolidadoDownloadController extends Controller
         $format = $this->format($request);
         $view = (string) $request->query('vista', 'definitiva');
         $view = in_array($view, ConsolidadoService::VIEWS, true) ? $view : 'definitiva';
+        $by = $request->query('por') === 'materias' ? 'materias' : 'areas';
 
         @set_time_limit(300);
 
-        $consolidados = $service->forTerm($year, $semester, $view);
+        $consolidados = $service->forTerm($year, $semester, $view, $by);
 
         abort_if($consolidados === [], 404, __('El semestre no tiene ciclos con estudiantes.'));
 
         $label = __(':year · Semestre :n', ['year' => $year, 'n' => $semester]);
 
         if ($format === 'pdf') {
-            return $exporter->termPdf($consolidados, $label)->download($exporter->termFileName($year, $semester, $view, 'pdf'));
+            return $exporter->termPdf($consolidados, $label)->download($exporter->termFileName($year, $semester, $view, 'pdf', $by));
         }
 
-        return $this->workbook($exporter->termWorkbook($consolidados, $label), $exporter->termFileName($year, $semester, $view, 'xlsx'));
+        return $this->workbook($exporter->termWorkbook($consolidados, $label), $exporter->termFileName($year, $semester, $view, 'xlsx', $by));
     }
 
     private function format(Request $request): string

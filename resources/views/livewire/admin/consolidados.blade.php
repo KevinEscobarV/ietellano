@@ -21,7 +21,11 @@
 
                     <flux:menu>
                         <flux:menu.heading>{{ __(':year · Semestre :n', ['year' => $year, 'n' => $semester]) }}</flux:menu.heading>
-                        @php $termRoute = ['year' => $year, 'semester' => $semester] + ($consolidado && $consolidado['view'] !== 'definitiva' ? ['vista' => $consolidado['view']] : []); @endphp
+                        @php
+                            $termRoute = ['year' => $year, 'semester' => $semester]
+                                + ($consolidado && $consolidado['view'] !== 'definitiva' ? ['vista' => $consolidado['view']] : [])
+                                + ($consolidado && $consolidado['by'] === 'materias' ? ['por' => 'materias'] : []);
+                        @endphp
                         <flux:menu.item icon="table-cells" :href="route('admin.consolidados.download-term', $termRoute + ['formato' => 'xlsx'])" target="_blank">
                             {{ __('Excel, una hoja por ciclo') }}
                         </flux:menu.item>
@@ -85,40 +89,27 @@
         {{-- Qué se lee --}}
         <div class="mb-4 flex flex-wrap items-center gap-3" data-tour="views">
             @if ($parts)
-                <div class="inline-flex rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800" role="group" aria-label="{{ __('Año o semestre') }}">
-                    @foreach (['anio' => __('Año completo (:first + :second)', ['first' => $parts['previous'], 'second' => $parts['current']]), 'semestre' => __('Solo :level', ['level' => $parts['current']])] as $value => $label)
-                        <button
-                            type="button"
-                            wire:key="span-{{ $value }}"
-                            wire:click="$set('span', '{{ $value }}')"
-                            aria-pressed="{{ $consolidado['year'] === ($value === 'anio') ? 'true' : 'false' }}"
-                            @class([
-                                'rounded-md px-3 py-1.5 text-sm font-medium transition',
-                                'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white' => $consolidado['year'] === ($value === 'anio'),
-                                'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white' => $consolidado['year'] !== ($value === 'anio'),
-                            ])
-                        >{{ $label }}</button>
-                    @endforeach
-                </div>
+                <x-segmented
+                    :options="['anio' => __('Año completo (:first + :second)', ['first' => $parts['previous'], 'second' => $parts['current']]), 'semestre' => __('Solo :level', ['level' => $parts['current']])]"
+                    :value="$consolidado['year'] ? 'anio' : 'semestre'"
+                    property="span"
+                    :label="__('Año o semestre')"
+                />
             @endif
 
             @unless ($consolidado['year'])
-                <div class="inline-flex rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800" role="group" aria-label="{{ __('Qué notas ver') }}">
-                    @foreach ($views as $value => $label)
-                        <button
-                            type="button"
-                            wire:key="view-{{ $value }}"
-                            wire:click="$set('view', '{{ $value }}')"
-                            aria-pressed="{{ $consolidado['view'] === $value ? 'true' : 'false' }}"
-                            @class([
-                                'rounded-md px-3 py-1.5 text-sm font-medium transition',
-                                'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-white' => $consolidado['view'] === $value,
-                                'text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white' => $consolidado['view'] !== $value,
-                            ])
-                        >{{ $label }}</button>
-                    @endforeach
-                </div>
+                <x-segmented :options="$views" :value="$consolidado['view']" property="view" :label="__('Qué notas ver')" />
             @endunless
+
+            @if ($consolidado['has_areas'])
+                <x-segmented
+                    :options="['areas' => __('Por área'), 'materias' => __('Por materia')]"
+                    :value="$consolidado['by']"
+                    property="by"
+                    :label="__('Columnas por área o por materia')"
+                    data-tour="by"
+                />
+            @endif
 
             @if ($groups->count() > 1)
                 <div class="w-44">
@@ -324,24 +315,53 @@
             {{-- La tabla --}}
             <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700" data-tour="table">
                 <table class="min-w-full text-sm">
+                    {{-- Por materia, el encabezado tiene dos pisos: el área arriba
+                         y sus materias debajo. Las columnas que no son de un área
+                         ocupan los dos. --}}
+                    @php
+                        $grouped = $consolidado['by'] === 'materias' && $consolidado['has_areas'];
+                        $rowspan = $grouped ? 2 : 1;
+                    @endphp
                     <thead class="bg-zinc-50 text-xs text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400">
                         <tr>
-                            <th scope="col" class="sticky left-0 z-10 min-w-40 bg-zinc-50 px-3 py-2 text-left font-medium dark:bg-zinc-800">{{ __('Estudiante') }}</th>
+                            <th scope="col" rowspan="{{ $rowspan }}" class="sticky left-0 z-10 min-w-40 bg-zinc-50 px-3 py-2 text-left font-medium dark:bg-zinc-800">{{ __('Estudiante') }}</th>
                             @if ($consolidado['showGroup'])
-                                <th scope="col" class="px-2 py-2 text-left font-medium whitespace-nowrap">{{ __('Grupo') }}</th>
+                                <th scope="col" rowspan="{{ $rowspan }}" class="px-2 py-2 text-left font-medium whitespace-nowrap">{{ __('Grupo') }}</th>
                             @endif
-                            @foreach ($consolidado['columns'] as $column)
-                                <th
-                                    scope="col"
-                                    wire:key="col-{{ $loop->index }}"
-                                    class="min-w-20 px-2 py-2 text-center font-medium leading-tight"
-                                    @if ($column['components'] !== []) title="{{ implode(' + ', $column['components']) }}" @endif
-                                >{{ $column['name'] }}</th>
-                            @endforeach
-                            <th scope="col" class="px-2 py-2 text-center font-semibold text-zinc-700 dark:text-zinc-200">{{ __('Prom.') }}</th>
-                            <th scope="col" class="px-2 py-2 text-center font-medium">{{ __('Puesto') }}</th>
-                            <th scope="col" class="px-2 py-2 text-center font-medium">{{ __('Pierde') }}</th>
+                            @if ($grouped)
+                                @php $offset = 0; @endphp
+                                @foreach ($consolidado['column_groups'] as $group)
+                                    @if ($group['area'] !== null)
+                                        <th scope="colgroup" colspan="{{ $group['span'] }}" wire:key="group-{{ $loop->index }}" class="border-b border-zinc-200 px-2 pt-2 pb-1 text-center font-semibold text-zinc-600 dark:border-zinc-700 dark:text-zinc-300">{{ $group['area'] }}</th>
+                                    @else
+                                        @php $column = $consolidado['columns'][$offset]; @endphp
+                                        <th scope="col" rowspan="2" wire:key="group-{{ $loop->index }}" class="min-w-20 px-2 py-2 text-center font-medium leading-tight">{{ $column['name'] }}</th>
+                                    @endif
+                                    @php $offset += $group['span']; @endphp
+                                @endforeach
+                            @else
+                                @foreach ($consolidado['columns'] as $column)
+                                    <th
+                                        scope="col"
+                                        wire:key="col-{{ $loop->index }}"
+                                        class="min-w-20 px-2 py-2 text-center font-medium leading-tight"
+                                        @if ($column['components'] !== []) title="{{ __('Promedio de :subjects', ['subjects' => implode(' y ', $column['components'])]) }}" @endif
+                                    >{{ $column['name'] }}</th>
+                                @endforeach
+                            @endif
+                            <th scope="col" rowspan="{{ $rowspan }}" class="px-2 py-2 text-center font-semibold text-zinc-700 dark:text-zinc-200">{{ __('Prom.') }}</th>
+                            <th scope="col" rowspan="{{ $rowspan }}" class="px-2 py-2 text-center font-medium">{{ __('Puesto') }}</th>
+                            <th scope="col" rowspan="{{ $rowspan }}" class="px-2 py-2 text-center font-medium" title="{{ __('Materias perdidas, como las cuenta el certificado') }}">{{ __('Pierde') }}</th>
                         </tr>
+                        @if ($grouped)
+                            <tr>
+                                @foreach ($consolidado['columns'] as $column)
+                                    @if ($column['area'] !== null)
+                                        <th scope="col" wire:key="sub-{{ $loop->index }}" class="min-w-20 px-2 pt-1 pb-2 text-center font-medium leading-tight">{{ $column['name'] }}</th>
+                                    @endif
+                                @endforeach
+                            </tr>
+                        @endif
                     </thead>
 
                     <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -362,13 +382,20 @@
                                     <td class="px-2 py-2 text-xs whitespace-nowrap text-zinc-500">{{ $row['group'] ?? '—' }}</td>
                                 @endif
                                 @foreach ($consolidado['columns'] as $column)
-                                    @php $cell = $row['cells'][$column['name']] ?? null; @endphp
-                                    <td @class([
-                                        'px-2 py-2 text-center tabular-nums',
-                                        'bg-red-50 font-semibold text-red-700 dark:bg-red-500/10 dark:text-red-300' => $cell && $cell['failed'],
-                                        'italic text-zinc-400 dark:text-zinc-500' => $cell && ! $cell['complete'],
-                                        'text-zinc-800 dark:text-zinc-200' => $cell && $cell['complete'] && ! $cell['failed'],
-                                    ])>{{ $cell ? $num($cell['score']) : '' }}</td>
+                                    @php
+                                        $cell = $row['cells'][$column['name']] ?? null;
+                                        $lost = $cell ? collect($cell['lost'])->map(fn ($subject) => $subject['name'].' ('.$num($subject['score']).')')->implode(', ') : '';
+                                    @endphp
+                                    <td
+                                        @class([
+                                            'px-2 py-2 text-center tabular-nums',
+                                            'bg-red-50 font-semibold text-red-700 dark:bg-red-500/10 dark:text-red-300' => $cell && $cell['failed'],
+                                            'bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200' => $cell && $cell['hides_loss'],
+                                            'italic text-zinc-400 dark:text-zinc-500' => $cell && ! $cell['complete'],
+                                            'text-zinc-800 dark:text-zinc-200' => $cell && $cell['complete'] && ! $cell['failed'] && ! $cell['hides_loss'],
+                                        ])
+                                        @if ($lost !== '') title="{{ __('Pierde :subjects', ['subjects' => $lost]) }}" @endif
+                                    >{{ $cell ? $num($cell['score']) : '' }}@if ($cell && $cell['hides_loss'])<span class="ms-0.5 font-semibold" aria-label="{{ __('Pierde :subjects', ['subjects' => $lost]) }}">*</span>@endif</td>
                                 @endforeach
                                 <td @class(['px-2 py-2 text-center font-semibold tabular-nums', 'text-red-600 dark:text-red-400' => $isFail($row['average']), 'text-zinc-900 dark:text-zinc-100' => ! $isFail($row['average'])])>{{ $num($row['average']) }}</td>
                                 <td class="px-2 py-2 text-center tabular-nums text-zinc-600 dark:text-zinc-400">{{ $row['rank'] ?? '—' }}</td>
@@ -406,9 +433,12 @@
                 @if ($s['pending_cells'] > 0 || $s['without_previous'] > 0)
                     {{ __('En gris y cursiva, notas incompletas.') }}
                 @endif
-                @if (collect($consolidado['columns'])->contains(fn ($column) => $column['components'] !== []))
-                    {{ __('Las áreas promedian sus materias, como en el boletín.') }}
+                @if ($consolidado['has_areas'] && $consolidado['by'] === 'areas')
+                    {{ __('Las áreas promedian sus materias, como en el boletín. Con *, el área aprueba aunque pierde una de sus materias: pasa el mouse por la nota o mira «Por materia».') }}
+                @elseif ($consolidado['has_areas'])
+                    {{ __('Cada materia de un área va bajo el nombre del área. El promedio y el puesto son los del boletín.') }}
                 @endif
+                {{ __('«Pierde» cuenta materias, como el certificado.') }}
                 @if ($s['without_previous'] > 0)
                     {{ __('Quienes no cursaron :level van sin puesto y fuera de las cuentas del ciclo.', ['level' => $parts['previous']]) }}
                 @endif
@@ -421,7 +451,8 @@
         ['target' => 'term', 'title' => __('1. El semestre'), 'body' => __('Elige el año y el semestre. La pantalla abre en el más reciente.')],
         ['target' => 'cycles', 'title' => __('2. El ciclo'), 'body' => __('Cada tarjeta dice cómo está cada módulo. El consolidado es definitivo cuando los dos están cerrados; antes sale como provisional.')],
         ['target' => 'views', 'title' => __('Qué notas ver'), 'body' => __('«Definitiva» es el promedio de los dos módulos, la misma del boletín. Con «Módulo 1» o «Módulo 2» ves solo ese: sirve para leer el M1 apenas se cierre. Los ciclos 3 y 4 duran un año: en 3B y 4B se abre el año completo, con el promedio de los dos semestres. También puedes filtrar por grupo y ordenar por puesto.')],
-        ['target' => 'summary', 'title' => __('La lectura rápida'), 'body' => __('El promedio del ciclo, cuántos aprueban todo, cuántos pierden 1, 2 o 3 materias o más, y las materias donde más se pierde.')],
+        ['target' => 'by', 'title' => __('Por área o por materia'), 'body' => __('«Por área» es como sale el boletín: Humanidades en una sola nota. «Por materia» abre cada área en sus materias, para ver si lo que se pierde es Inglés o Lengua. En «Por área», un * marca el área que aprueba aunque una de sus materias esté perdida.')],
+        ['target' => 'summary', 'title' => __('La lectura rápida'), 'body' => __('El promedio del ciclo, cuántos aprueban todo, cuántos pierden 1, 2 o 3 materias o más, y las materias donde más se pierde. Lo perdido se cuenta por materia, como en el certificado.')],
         ['target' => 'dropped', 'title' => __('Los que no siguieron'), 'body' => __('En el año completo, aquí está la lista de quienes cursaron el primer semestre y no aparecen en el segundo, con su promedio de allá.')],
         ['target' => 'table', 'title' => __('Estudiante por estudiante'), 'body' => __('En rojo, las notas por debajo de 3.0; en gris, las que todavía están incompletas. Abajo, el promedio de cada materia y cuántos la aprueban y la pierden.')],
         ['target' => 'downloads', 'title' => __('Excel o PDF'), 'body' => __('Se descarga lo que estás viendo. El Excel trae filtros y una hoja con la nota de cada módulo; el PDF es para imprimir o archivar.')],

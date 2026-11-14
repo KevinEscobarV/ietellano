@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\Admin\Boletines;
+use App\Models\Area;
 use App\Models\Course;
 use App\Models\Cycle;
 use App\Models\Enrollment;
@@ -8,6 +9,7 @@ use App\Models\Grade;
 use App\Models\Student;
 use App\Models\Subject;
 use App\Models\User;
+use App\Services\BoletinService;
 use Livewire\Features\SupportTesting\Testable;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -140,5 +142,104 @@ describe('recorrido semestre, ciclo y estudiante', function () {
         Livewire::actingAs($this->admin)->test(Boletines::class)
             ->set('studentId', (string) $ajeno->id)
             ->assertViewHas('boletin', null);
+    });
+});
+
+describe('qué notas lleva el boletín', function () {
+    beforeEach(function () {
+        // Humanidades: Inglés y Lengua. A Inglés le falta la nota del M2, como
+        // en el boletín que la coordinación no entendía.
+        $area = Area::create(['cycle_id' => $this->cycle->id, 'name' => 'Humanidades', 'code' => 'HUM', 'display_order' => 1]);
+
+        foreach (['ING' => ['Inglés', 4.5, null], 'LEN' => ['Lengua Castellana', 4.16, 3.2]] as $code => [$name, $m1, $m2]) {
+            $subject = Subject::create(['code' => $code, 'name' => $name]);
+            $area->subjects()->attach($subject);
+
+            foreach ([1 => $m1, 2 => $m2] as $period => $score) {
+                $course = Course::create(['code' => "C5{$code}M{$period}", 'cycle_id' => $this->cycle->id, 'subject_id' => $subject->id, 'period' => $period]);
+
+                if ($score !== null) {
+                    Grade::create(['course_id' => $course->id, 'student_id' => $this->student->id, 'score' => $score]);
+                }
+            }
+        }
+
+        $this->boletin = fn (?string $span) => app(BoletinService::class)->forSpan($this->student, $this->cycle->fresh(), $span);
+    });
+
+    it('cada materia del área lleva sus propias notas en las mismas columnas', function () {
+        $humanidades = collect(($this->boletin)('semestre')['lines'])->firstWhere('name', 'Humanidades');
+
+        expect($humanidades)->toMatchArray(['type' => 'area', 'p1' => 4.33, 'p2' => 3.2, 'final' => 4.09])
+            ->and($humanidades['components'])->toHaveCount(2)
+            ->and($humanidades['components'][0])->toMatchArray(['name' => 'Inglés', 'p1' => 4.5, 'p2' => null, 'final' => 4.5])
+            ->and($humanidades['components'][1])->toMatchArray(['name' => 'Lengua Castellana', 'p1' => 4.16, 'p2' => 3.2, 'final' => 3.68]);
+    });
+
+    it('el boletín de un módulo trae solo las notas de ese módulo', function () {
+        $m1 = ($this->boletin)('m1');
+        $m2 = ($this->boletin)('m2');
+        $lines = fn (array $boletin) => collect($boletin['lines'])->keyBy('name');
+
+        expect($m1)->toMatchArray(['period' => 1, 'span' => 'm1', 'detail_columns' => [], 'final_label' => 'Nota'])
+            ->and($lines($m1)['Matematicas']['final'])->toBe(4.0)
+            ->and($lines($m1)['Humanidades']['final'])->toBe(4.33)
+            ->and($m1['overall'])->toBe(4.17)
+            ->and($lines($m2)['Matematicas']['final'])->toBe(3.0)
+            // En el M2 Inglés no tiene nota: Humanidades es solo Lengua.
+            ->and($lines($m2)['Humanidades']['final'])->toBe(3.2)
+            ->and($lines($m2)['Humanidades']['components'][0])->toMatchArray(['name' => 'Inglés', 'final' => null]);
+    });
+
+    it('el boletín de un módulo es definitivo cuando ese módulo se cierra', function () {
+        expect(($this->boletin)('m1')['partial'])->toBeTrue();
+
+        $this->cycle->closeModule(1);
+
+        expect(($this->boletin)('m1')['partial'])->toBeFalse()
+            ->and(($this->boletin)('m2')['partial'])->toBeTrue()
+            ->and(($this->boletin)('semestre')['partial'])->toBeTrue();
+    });
+
+    it('un ciclo de un semestre no tiene año: se queda en el semestre', function () {
+        expect(BoletinService::spans($this->cycle))->toBe(['m1' => 'Módulo 1', 'm2' => 'Módulo 2', 'semestre' => 'Semestre'])
+            ->and(($this->boletin)('anio')['span'])->toBe('semestre')
+            ->and(($this->boletin)('cualquiera')['span'])->toBe('semestre');
+    });
+
+    it('cuenta las materias perdidas una por una, como el certificado', function () {
+        Grade::whereHas('course', fn ($query) => $query->where('code', 'like', 'C5ING%'))->update(['score' => 2.0]);
+
+        $boletin = ($this->boletin)('semestre');
+
+        // Humanidades da 2.84, pero lo perdido es Inglés: una sola materia.
+        expect(collect($boletin['lines'])->firstWhere('name', 'Humanidades')['final'])->toBe(2.84)
+            ->and(BoletinService::failedSubjects($boletin['lines']))->toBe(1);
+    });
+
+    it('la pantalla cambia de lectura y descarga la misma', function () {
+        Livewire::actingAs($this->admin)
+            ->test(Boletines::class)
+            ->set('studentId', (string) $this->student->id)
+            ->assertSee('Promedio de Inglés y Lengua Castellana')
+            ->assertSee('Mód. 1')
+            ->set('span', 'm1')
+            ->assertSet('span', 'm1')
+            ->assertViewHas('downloadParams', ['notas' => 'm1'])
+            ->assertSee('Módulo 1 sigue abierto')
+            ->assertSee(route('admin.boletines.download-student', ['cycle' => $this->cycle->id, 'student' => $this->student->id, 'notas' => 'm1']), false)
+            ->assertDontSee('Mód. 1');
+    });
+
+    it('el PDF y el ZIP de un módulo dicen cuál es', function () {
+        $this->actingAs($this->admin)
+            ->get(route('admin.boletines.download-student', ['cycle' => $this->cycle->id, 'student' => $this->student->id, 'notas' => 'm2']))
+            ->assertOk()
+            ->assertDownload('boletin-arevalo-hernandez-lineth-yuliana-1118544017-modulo-2.pdf');
+
+        $this->actingAs($this->admin)
+            ->get(route('admin.boletines.download', ['cycle' => $this->cycle->id, 'notas' => 'm1']))
+            ->assertOk()
+            ->assertDownload('boletines-ciclo-5-modulo-1.zip');
     });
 });

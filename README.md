@@ -155,6 +155,8 @@ Como el nivel se repite cada semestre, en pantalla los ciclos se muestran con su
 
 Un ciclo de dos semestres —el 3 y el 4— enlaza el semestre 1 con el 2 por `previous_cycle_id`. Cada semestre tiene su propio boletín y su propio certificado, que dice `CICLO III – Semestre 1` o `– Semestre 2` según la letra del nivel. Desde el semestre 2 se puede además sacar el del ciclo completo, con columnas *Semestre 1 / Semestre 2 / Final*. El boletín combinado sale en cualquier momento, como reporte de avance; el certificado combinado solo cuando el semestre 2 está cerrado, porque da por cursado el ciclo entero.
 
+El boletín también sale de **un solo módulo** (`?notas=m1|m2|semestre|anio` en pantalla y en las descargas): trae solo las notas de ese módulo y es definitivo apenas ese módulo se cierra. En el boletín, cada materia de un área va en su propia fila, debajo del área, con sus notas en las mismas columnas. El consolidado se lee **por área o por materia**; en las dos lecturas lo perdido se cuenta por materia, como en el certificado.
+
 ---
 
 ## Datos

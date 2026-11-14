@@ -34,6 +34,13 @@ class ConsolidadoService
 
     public const SORTS = ['nombre', 'puesto'];
 
+    /**
+     * Cómo van las columnas: una por área (Humanidades) o una por materia
+     * (Inglés, Lengua Castellana). Las dos lecturas cuentan lo perdido por
+     * materia, como el certificado: el promedio del área no tapa una perdida.
+     */
+    public const GROUPINGS = ['areas', 'materias'];
+
     public function __construct(
         private BoletinService $boletines,
         private TermService $term,
@@ -47,9 +54,14 @@ class ConsolidadoService
      * cuántos del primero no siguieron. Un ciclo sin semestre anterior se lee
      * siempre por semestre.
      *
+     * Cada fila trae las celdas de las dos lecturas (`area_cells` y
+     * `subject_cells`); `$by` elige cuál queda en `columns`, `stats` y
+     * `cells` (ver groupedBy()). El promedio y el puesto son siempre los del
+     * boletín, por áreas; lo perdido y lo que falta se cuentan por materia.
+     *
      * @return array<string, mixed>
      */
-    public function forCycle(Cycle $cycle, string $view = 'definitiva', bool $wholeYear = false, ?int $groupId = null, string $sort = 'nombre'): array
+    public function forCycle(Cycle $cycle, string $view = 'definitiva', bool $wholeYear = false, ?int $groupId = null, string $sort = 'nombre', string $by = 'areas'): array
     {
         $previous = $cycle->previousCycle;
         $year = $wholeYear && $previous !== null;
@@ -61,23 +73,45 @@ class ConsolidadoService
             ? Enrollment::where('cycle_id', $previous->id)->pluck('student_id')->flip()
             : collect();
 
-        $columns = [];
+        $areaColumns = [];
+        $subjectColumns = [];
         $rows = [];
 
         foreach ($this->students($cycle, $group) as $student) {
             $boletin = $this->boletines->generate($student, $cycle, $year);
-            $cells = [];
+            $areaCells = [];
+            $subjectCells = [];
 
             foreach ($boletin['lines'] as $line) {
-                $columns[$line['name']] ??= [
+                $areaColumns[$line['name']] ??= [
                     'name' => $line['name'],
+                    'area' => null,
                     'components' => array_column($line['components'], 'name'),
                 ];
 
-                $cells[$line['name']] = $this->cell($line, $view, $year);
+                $cell = $this->cell($line, $view, $year);
+                $lost = [];
+
+                // Una materia suelta es su propia columna en las dos lecturas;
+                // un área se abre en sus materias.
+                foreach ($line['components'] ?: [$line] as $subject) {
+                    $subjectColumns[$subject['name']] ??= [
+                        'name' => $subject['name'],
+                        'area' => $line['components'] === [] ? null : $line['name'],
+                        'components' => [],
+                    ];
+
+                    $subjectCells[$subject['name']] = $subjectCell = $line['components'] === [] ? $cell : $this->cell($subject, $view, $year);
+
+                    if ($line['components'] !== [] && $subjectCell['failed']) {
+                        $lost[] = ['name' => $subject['name'], 'score' => $subjectCell['score']];
+                    }
+                }
+
+                $areaCells[$line['name']] = [...$cell, 'lost' => $lost, 'hides_loss' => ! $cell['failed'] && $lost !== []];
             }
 
-            $average = BoletinService::average(array_column($cells, 'score'));
+            $average = BoletinService::average(array_column($areaCells, 'score'));
 
             $rows[] = [
                 'id' => $student->id,
@@ -85,18 +119,23 @@ class ConsolidadoService
                 'document' => $student->document,
                 'group' => $boletin['group'],
                 'took_previous' => $tookPrevious->has($student->id),
-                'cells' => $cells,
+                'area_cells' => $areaCells,
+                'subject_cells' => $subjectCells,
                 'average' => $average,
                 'performance' => BoletinService::performance($average),
-                'failed' => count(array_filter($cells, fn (array $cell) => $cell['failed'])),
-                'pending' => count(array_filter($cells, fn (array $cell) => ! $cell['complete'])),
+                'failed' => count(array_filter($subjectCells, fn (array $cell) => $cell['failed'])),
+                'pending' => count(array_filter($subjectCells, fn (array $cell) => ! $cell['complete'])),
                 'rank' => null,
             ];
         }
 
-        // Mismo orden de materias que el boletín.
-        $columns = array_values($columns);
-        usort($columns, fn (array $a, array $b) => strcmp($a['name'], $b['name']));
+        // Mismo orden del boletín: por nombre, y las materias de un área
+        // juntas, en el lugar del área.
+        $areaColumns = array_values($areaColumns);
+        usort($areaColumns, fn (array $a, array $b) => strcmp($a['name'], $b['name']));
+
+        $subjectColumns = array_values($subjectColumns);
+        usort($subjectColumns, fn (array $a, array $b) => [$a['area'] ?? $a['name'], $a['name']] <=> [$b['area'] ?? $b['name'], $b['name']]);
 
         // En el año, el puesto y las cuentas son de quienes cursaron los dos
         // semestres: con uno solo, la nota del año está a medias.
@@ -109,10 +148,10 @@ class ConsolidadoService
         }
 
         $counted = array_values(array_filter($rows, $counts));
-        $stats = $this->columnStats($columns, $counted);
+        $subjectStats = $this->columnStats($subjectColumns, $counted, 'subject_cells');
         $dropped = $year && $group === null ? $this->dropped($previous, $cycle) : [];
 
-        return [
+        return self::groupedBy([
             'cycle' => $cycle,
             'group' => $group,
             'view' => $view,
@@ -125,16 +164,60 @@ class ConsolidadoService
             'status' => $this->status($cycle, $view, $year ? $previous : null),
             'detailLabels' => $year ? [$previous->level, $cycle->level, __('Año')] : [__('M1'), __('M2'), __('Def.')],
             'showGroup' => $group === null && count(array_unique(array_filter(array_column($rows, 'group')))) > 1,
-            'columns' => $columns,
+            'has_areas' => collect($areaColumns)->contains(fn (array $column) => $column['components'] !== []),
+            'area_columns' => $areaColumns,
+            'subject_columns' => $subjectColumns,
+            'area_stats' => $this->columnStats($areaColumns, $counted, 'area_cells'),
+            'subject_stats' => $subjectStats,
             'rows' => $rows,
-            'stats' => $stats,
             'summary' => [
-                ...$this->summary($stats, $counted),
+                // Dónde más se pierde, por materia: así se sabe si es Inglés o Lengua.
+                ...$this->summary($subjectStats, $counted),
                 'students' => count($rows),
                 'without_previous' => $year ? count($rows) - count($counted) : 0,
                 'dropped' => count($dropped),
             ],
             'dropped' => $dropped,
+        ], $by);
+    }
+
+    /**
+     * El consolidado leído por áreas o por materias: deja en `columns`,
+     * `stats`, `column_groups` y en el `cells` de cada fila la lectura pedida.
+     * Un ciclo sin áreas se lee igual de las dos formas.
+     *
+     * `column_groups` sirve para el encabezado de dos pisos: cada tramo de
+     * columnas seguidas de la misma área, con su nombre (null si no es de un
+     * área).
+     *
+     * @param  array<string, mixed>  $consolidado
+     * @return array<string, mixed>
+     */
+    public static function groupedBy(array $consolidado, string $by): array
+    {
+        $by = in_array($by, self::GROUPINGS, true) && $consolidado['has_areas'] ? $by : 'areas';
+        $prefix = $by === 'materias' ? 'subject' : 'area';
+        $columns = $consolidado["{$prefix}_columns"];
+
+        $groups = [];
+
+        foreach ($columns as $column) {
+            $last = array_key_last($groups);
+
+            if ($column['area'] !== null && $last !== null && $groups[$last]['area'] === $column['area']) {
+                $groups[$last]['span']++;
+            } else {
+                $groups[] = ['area' => $column['area'], 'span' => 1];
+            }
+        }
+
+        return [
+            ...$consolidado,
+            'by' => $by,
+            'columns' => $columns,
+            'column_groups' => $groups,
+            'stats' => $consolidado["{$prefix}_stats"],
+            'rows' => array_map(fn (array $row) => [...$row, 'cells' => $row["{$prefix}_cells"]], $consolidado['rows']),
         ];
     }
 
@@ -145,7 +228,7 @@ class ConsolidadoService
      *
      * @return list<array<string, mixed>>
      */
-    public function forTerm(int $year, int $semester, string $view = 'definitiva'): array
+    public function forTerm(int $year, int $semester, string $view = 'definitiva', string $by = 'areas'): array
     {
         return Cycle::query()
             ->where('year', $year)
@@ -153,7 +236,7 @@ class ConsolidadoService
             ->whereHas('enrollments')
             ->ordered()
             ->get()
-            ->map(fn (Cycle $cycle) => $this->forCycle($cycle, $view, $view === 'definitiva'))
+            ->map(fn (Cycle $cycle) => $this->forCycle($cycle, $view, $view === 'definitiva', by: $by))
             ->all();
     }
 
@@ -296,10 +379,7 @@ class ConsolidadoService
                     'document' => $student->document,
                     'group' => $boletin['group'],
                     'average' => $boletin['overall'],
-                    'failed' => count(array_filter(
-                        $boletin['lines'],
-                        fn (array $line) => $line['final'] !== null && $line['final'] < BoletinService::PASSING_SCORE,
-                    )),
+                    'failed' => BoletinService::failedSubjects($boletin['lines']),
                 ];
             })
             ->all();
@@ -309,8 +389,11 @@ class ConsolidadoService
      * La nota de una línea del boletín según lo que se lee. Está completa
      * cuando tiene las notas de los dos módulos (o de los dos semestres).
      *
+     * Una celda de área trae además las materias que pierde (`lost`) y si el
+     * área aprueba a pesar de eso (`hides_loss`).
+     *
      * @param  array<string, mixed>  $line
-     * @return array{score: ?float, first: ?float, second: ?float, final: ?float, complete: bool, failed: bool}
+     * @return array{score: ?float, first: ?float, second: ?float, final: ?float, complete: bool, failed: bool, lost: list<array{name: string, score: ?float}>, hides_loss: bool}
      */
     private function cell(array $line, string $view, bool $year): array
     {
@@ -330,6 +413,8 @@ class ConsolidadoService
             'final' => $line['final'],
             'complete' => $complete,
             'failed' => $score !== null && $score < BoletinService::PASSING_SCORE,
+            'lost' => [],
+            'hides_loss' => false,
         ];
     }
 
@@ -369,16 +454,17 @@ class ConsolidadoService
      * Promedio y cuántos aprueban, pierden o tienen la nota incompleta en cada
      * materia. Solo cuentan los estudiantes a los que les toca la materia.
      *
-     * @param  list<array{name: string, components: list<string>}>  $columns
+     * @param  list<array{name: string, area: ?string, components: list<string>}>  $columns
      * @param  list<array<string, mixed>>  $rows
+     * @param  'area_cells'|'subject_cells'  $cellsKey  qué celdas de la fila se leen
      * @return array<string, array{students: int, graded: int, average: ?float, passed: int, failed: int, pending: int}>
      */
-    private function columnStats(array $columns, array $rows): array
+    private function columnStats(array $columns, array $rows, string $cellsKey): array
     {
         $stats = [];
 
         foreach ($columns as $column) {
-            $cells = array_values(array_filter(array_map(fn (array $row) => $row['cells'][$column['name']] ?? null, $rows)));
+            $cells = array_values(array_filter(array_map(fn (array $row) => $row[$cellsKey][$column['name']] ?? null, $rows)));
             $scores = array_values(array_filter(array_column($cells, 'score'), fn (?float $score) => $score !== null));
             $failed = count(array_filter($cells, fn (array $cell) => $cell['failed']));
 

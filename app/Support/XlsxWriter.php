@@ -35,6 +35,7 @@ class XlsxWriter
         'bold-score' => 14,
         'seal-provisional' => 15,
         'seal-definitive' => 16,
+        'score-warn' => 17,
     ];
 
     private const MAX_SHEET_NAME = 31;
@@ -348,8 +349,9 @@ class XlsxWriter
 
     /**
      * Los estilos de STYLES, en el mismo orden. Rojo y fondo rosa para lo que
-     * se pierde (los colores de "Incorrecto" de Excel), gris en cursiva para lo
-     * incompleto.
+     * se pierde (los colores de "Incorrecto" de Excel), amarillo para lo que
+     * aprueba con algo perdido adentro (los de "Neutral"), gris en cursiva
+     * para lo incompleto.
      */
     private function styles(): string
     {
@@ -366,6 +368,7 @@ class XlsxWriter
             $font('<i/>', 11, 'FF9C0006'),     // 6 rojo en cursiva
             $font('<b/>', 11, 'FF92400E'),     // 7 sello provisional
             $font('<b/>', 11, 'FF047857'),     // 8 sello definitivo
+            $font('', 11, 'FF9C5700'),         // 9 ámbar
         ];
 
         $fills = [
@@ -373,6 +376,7 @@ class XlsxWriter
             '<fill><patternFill patternType="gray125"/></fill>',
             '<fill><patternFill patternType="solid"><fgColor rgb="FFF4F4F5"/><bgColor indexed="64"/></patternFill></fill>', // 2 encabezado
             '<fill><patternFill patternType="solid"><fgColor rgb="FFFFC7CE"/><bgColor indexed="64"/></patternFill></fill>', // 3 rosa
+            '<fill><patternFill patternType="solid"><fgColor rgb="FFFFEB9C"/><bgColor indexed="64"/></patternFill></fill>', // 4 amarillo
         ];
 
         $side = fn (string $name) => '<'.$name.' style="thin"><color rgb="FFD4D4D8"/></'.$name.'>';
@@ -407,6 +411,7 @@ class XlsxWriter
             $xf(164, 1, 0, 1, $center),         // bold-score
             $xf(0, 7, 0, 0, $wrap),             // seal-provisional
             $xf(0, 8, 0, 0, $wrap),             // seal-definitive
+            $xf(164, 9, 4, 1, $center),         // score-warn
         ];
 
         return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'."\n"

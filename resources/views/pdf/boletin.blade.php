@@ -17,41 +17,48 @@
         @page { margin: 0; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: DejaVu Sans, sans-serif; color: #27272a; font-size: 11px; }
-        .page { padding: 34px 40px; }
+        .page { padding: 26px 36px; }
         .card { border: 1px solid #e4e4e7; border-radius: 16px; overflow: hidden; }
         .accent { width: 100%; border-collapse: collapse; }
         .accent td { height: 6px; font-size: 0; line-height: 0; }
-        .inner { padding: 26px 34px 30px; }
+        .inner { padding: 20px 30px 22px; }
 
         .header-table { width: 100%; border-collapse: collapse; }
         .header-table td { vertical-align: middle; }
-        .logo { width: 72px; height: 72px; }
+        .logo { width: 64px; height: 64px; }
         .inst-name { font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.4px; color: #18181b; line-height: 1.25; }
         .inst-sub { font-size: 9px; color: #71717a; margin-top: 2px; }
         .doc-title { font-size: 12px; font-weight: bold; letter-spacing: 1px; color: #18181b; margin-top: 6px; }
         .cycle-meta { font-size: 9.5px; color: #71717a; margin-top: 1px; }
 
-        .meta { width: 100%; border-collapse: collapse; margin-top: 18px; background-color: #fafafa; border: 1px solid #f0f0f1; border-radius: 10px; }
+        .meta { width: 100%; border-collapse: collapse; margin-top: 14px; background-color: #fafafa; border: 1px solid #f0f0f1; border-radius: 10px; }
         .meta td { padding: 7px 12px; font-size: 10.5px; width: 50%; }
         .meta .lbl { color: #71717a; }
         .meta .val { font-weight: bold; color: #18181b; }
 
-        table.grades { width: 100%; border-collapse: collapse; margin-top: 16px; }
+        table.grades { width: 100%; border-collapse: collapse; margin-top: 12px; }
         table.grades thead th { font-size: 8.5px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.8px; color: #71717a; padding: 7px 8px; border-top: 1px solid #d4d4d8; border-bottom: 1px solid #d4d4d8; text-align: center; }
         table.grades thead th.area { text-align: left; }
-        table.grades td { padding: 8px; font-size: 11.5px; border-bottom: 1px solid #f4f4f5; vertical-align: top; }
+        table.grades td { padding: 5px 8px; font-size: 11.5px; border-bottom: 1px solid #f4f4f5; vertical-align: top; }
         table.grades td.c { text-align: center; }
         .line-name { font-weight: bold; color: #18181b; }
         .line-teacher { font-size: 9px; color: #a1a1aa; margin-top: 1px; }
-        .component { font-size: 9px; color: #a1a1aa; padding-left: 10px; margin-top: 1px; }
+        table.grades tr.area td { border-bottom: 0; padding-bottom: 2px; }
+        table.grades tr.component td { font-size: 10.5px; color: #52525b; padding-top: 2px; padding-bottom: 2px; border-bottom: 0; }
+        table.grades tr.component.last td { border-bottom: 1px solid #f4f4f5; padding-bottom: 5px; }
+        table.grades tr.component td.sub { padding-left: 16px; }
+        .sub-inner { border-left: 2px solid #e4e4e7; padding-left: 8px; }
+        .sub-name { color: #3f3f46; }
+        table.grades tr.component td.final-sub { font-weight: bold; color: #3f3f46; }
+        table.grades td.fail, table.grades tr.component td.fail { color: #b91c1c; }
         .final { font-weight: bold; }
         .final.fail { color: #b91c1c; }
         .pill { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 8.5px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid; }
-        tr.total td { border-top: 2px solid #d4d4d8; border-bottom: 0; font-weight: bold; padding-top: 11px; font-size: 11.5px; }
+        tr.total td { border-top: 2px solid #d4d4d8; border-bottom: 0; font-weight: bold; padding-top: 8px; font-size: 11.5px; }
 
-        .legend { font-size: 9px; color: #a1a1aa; margin-top: 14px; }
+        .legend { font-size: 9px; color: #a1a1aa; margin-top: 10px; }
 
-        table.sign { width: 100%; border-collapse: collapse; margin-top: 54px; }
+        table.sign { width: 100%; border-collapse: collapse; margin-top: 40px; }
         table.sign td { width: 50%; text-align: center; padding: 0 24px; }
         .sign-line { border-top: 1px solid #a1a1aa; padding-top: 6px; font-size: 10.5px; color: #52525b; }
     </style>
@@ -79,7 +86,7 @@
                             <div class="inst-name">{{ config('app.institution') }}</div>
                             <div class="inst-sub">Educación de adultos · Validación de bachillerato</div>
                             <div class="doc-title">BOLETÍN DE CALIFICACIONES</div>
-                            <div class="cycle-meta">{{ $boletin['cycle_label'] }} · Año {{ $boletin['cycle']->year }} · Semestre {{ $boletin['cycle']->semester }}</div>
+                            <div class="cycle-meta">{{ $boletin['cycle_label'] }} · Año {{ $boletin['cycle']->year }} · Semestre {{ $boletin['cycle']->semester }}@if ($boletin['period']) · Módulo {{ $boletin['period'] }}@endif</div>
                         </td>
                         <td style="width: 84px;"></td>
                     </tr>
@@ -94,43 +101,52 @@
                         <td><span class="lbl">Grupo:</span> <span class="val">{{ $boletin['group'] ?? '—' }}</span></td>
                         @if ($boletin['both'])
                             <td><span class="lbl">Semestres:</span> <span class="val">{{ $boletin['previous']->year }} – {{ $boletin['cycle']->year }}</span></td>
+                        @elseif ($boletin['period'])
+                            <td><span class="lbl">Módulo:</span> <span class="val">{{ $boletin['period'] }}</span></td>
                         @else
-                            <td><span class="lbl">Periodos:</span> <span class="val">1 y 2</span></td>
+                            <td><span class="lbl">Módulos:</span> <span class="val">1 y 2</span></td>
                         @endif
                     </tr>
                 </table>
 
+                @php
+                    $details = $boletin['detail_columns'];
+                    $fails = fn ($v) => $v !== null && $v < $passingScore;
+                    $absences = fn (array $l) => ($l['held'] ?? 0) > 0 ? ($l['absences'] ?? 0) : '—';
+                @endphp
+
+                {{-- Un área con su promedio y, debajo, una fila por materia con
+                     sus propias notas en las mismas columnas. --}}
                 <table class="grades">
                     <thead>
                         <tr>
                             <th class="area">Área / Materia</th>
-                            <th style="width: 52px;">{{ $boletin['both'] ? 'Sem 1' : 'P1' }}</th>
-                            <th style="width: 52px;">{{ $boletin['both'] ? 'Sem 2' : 'P2' }}</th>
-                            <th style="width: 56px;">Final</th>
+                            @foreach ($details as $detail)
+                                <th style="width: 52px;">{{ $detail['label'] }}</th>
+                            @endforeach
+                            <th style="width: 56px;">{{ $boletin['final_label'] }}</th>
                             <th style="width: 46px;">Fallas</th>
                             <th style="width: 110px;">Desempeño</th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($boletin['lines'] as $line)
-                            @php $fail = $line['final'] !== null && $line['final'] < $passingScore; @endphp
-                            @php $col1 = $boletin['both'] ? ($line['sem1'] ?? null) : ($line['p1'] ?? null); @endphp
-                            @php $col2 = $boletin['both'] ? ($line['sem2'] ?? null) : ($line['p2'] ?? null); @endphp
-                            <tr>
+                            @php $isArea = $line['type'] === 'area'; @endphp
+                            <tr class="{{ $isArea ? 'area' : '' }}">
                                 <td>
                                     <div class="line-name">{{ $line['name'] }}</div>
-                                    @if ($line['type'] === 'subject' && ($line['teacher'] ?? null))
+                                    @if ($isArea)
+                                        <div class="line-teacher">Promedio de {{ implode(' y ', array_column($line['components'], 'name')) }}</div>
+                                    @elseif ($line['teacher'] ?? null)
                                         <div class="line-teacher">{{ $line['teacher'] }}</div>
                                     @endif
-                                    @foreach ($line['components'] as $component)
-                                        <div class="component">{{ $component['name'] }}@if ($component['teacher'] ?? null) · {{ $component['teacher'] }}@endif: {{ $num($component['final']) }}</div>
-                                    @endforeach
                                 </td>
-                                <td class="c">{{ $num($col1) }}</td>
-                                <td class="c">{{ $num($col2) }}</td>
-                                <td class="c final {{ $fail ? 'fail' : '' }}">{{ $num($line['final']) }}</td>
-                                <td class="c {{ ($line['lost_by_absence'] ?? false) ? 'fail' : '' }}">
-                                    {{ ($line['held'] ?? 0) > 0 ? ($line['absences'] ?? 0) : '—' }}
+                                @foreach ($details as $detail)
+                                    <td class="c">{{ $num($line[$detail['key']] ?? null) }}</td>
+                                @endforeach
+                                <td class="c final {{ $fails($line['final']) ? 'fail' : '' }}">{{ $num($line['final']) }}</td>
+                                <td class="c {{ ! $isArea && ($line['lost_by_absence'] ?? false) ? 'fail' : '' }}">
+                                    {{ $isArea ? '' : $absences($line) }}
                                 </td>
                                 <td class="c">
                                     @if ($line['performance'])
@@ -141,11 +157,31 @@
                                     @endif
                                 </td>
                             </tr>
+
+                            @foreach ($line['components'] as $component)
+                                <tr class="component {{ $loop->last ? 'last' : '' }}">
+                                    <td class="sub">
+                                        <div class="sub-inner">
+                                            <div class="sub-name">{{ $component['name'] }}</div>
+                                            @if ($component['teacher'] ?? null)
+                                                <div class="line-teacher">{{ $component['teacher'] }}</div>
+                                            @endif
+                                        </div>
+                                    </td>
+                                    @foreach ($details as $detail)
+                                        <td class="c">{{ $num($component[$detail['key']] ?? null) }}</td>
+                                    @endforeach
+                                    <td class="c final-sub {{ $fails($component['final']) ? 'fail' : '' }}">{{ $num($component['final']) }}</td>
+                                    <td class="c {{ ($component['lost_by_absence'] ?? false) ? 'fail' : '' }}">{{ $absences($component) }}</td>
+                                    <td></td>
+                                </tr>
+                            @endforeach
                         @endforeach
                         <tr class="total">
                             <td>Promedio general</td>
-                            <td></td>
-                            <td></td>
+                            @foreach ($details as $detail)
+                                <td></td>
+                            @endforeach
                             <td class="c">{{ $num($boletin['overall']) }}</td>
                             <td></td>
                             <td class="c">
@@ -160,7 +196,12 @@
                     </tbody>
                 </table>
 
-                <p class="legend">Escala: Superior (4.6–5.0) · Alto (4.0–4.5) · Básico (3.0–3.9) · Bajo (0.0–2.9). Nota mínima de aprobación: 3.0.</p>
+                <p class="legend">
+                    Escala: Superior (4.6–5.0) · Alto (4.0–4.5) · Básico (3.0–3.9) · Bajo (0.0–2.9). Nota mínima de aprobación: 3.0.
+                    @if ($boletin['has_areas'])
+                        La nota de un área es el promedio de las notas de sus materias; una materia por debajo de 3.0 sale en rojo aunque el área apruebe.
+                    @endif
+                </p>
 
                 <table class="sign">
                     <tr>

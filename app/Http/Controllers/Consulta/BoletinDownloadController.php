@@ -7,6 +7,7 @@ use App\Livewire\Consulta\Boletin;
 use App\Models\Cycle;
 use App\Models\Student;
 use App\Services\BoletinPdfExporter;
+use App\Services\BoletinService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -31,8 +32,10 @@ class BoletinDownloadController extends Controller
             __('No estás matriculado en ese semestre.'),
         );
 
+        $span = BoletinService::span(BoletinPdfExporter::spanFrom($request), $cycle);
+
         return $exporter
-            ->pdfForStudent($cycle, $student, $request->boolean('both'))
-            ->download($exporter->fileName($student));
+            ->pdfForStudent($cycle, $student, $span)
+            ->download($exporter->fileName($student, $span));
     }
 }

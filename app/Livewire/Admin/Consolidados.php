@@ -33,6 +33,12 @@ class Consolidados extends Component
     public string $sort = 'nombre';
 
     /**
+     * Una columna por área o una por materia (ConsolidadoService::GROUPINGS).
+     */
+    #[Url(as: 'por', except: 'areas')]
+    public string $by = 'areas';
+
+    /**
      * En los ciclos que duran un año (3B, 4B) se entra por el año completo;
      * "semestre" deja ver solo el segundo semestre, con sus módulos. En los
      * demás ciclos no cambia nada.
@@ -77,6 +83,7 @@ class Consolidados extends Component
             $this->span !== 'semestre',
             $this->groupId !== '' && $groups->has((int) $this->groupId) ? (int) $this->groupId : null,
             $this->sort,
+            $this->by,
         ) : null;
 
         return view('livewire.admin.consolidados', [
@@ -103,6 +110,7 @@ class Consolidados extends Component
             // El año es lo normal en 3B y 4B; solo se avisa cuando se pidió el semestre.
             'alcance' => $consolidado['yearParts'] && ! $consolidado['year'] ? 'semestre' : null,
             'orden' => $consolidado['sort'] !== 'nombre' ? $consolidado['sort'] : null,
+            'por' => $consolidado['by'] !== 'areas' ? $consolidado['by'] : null,
         ]);
     }
 }

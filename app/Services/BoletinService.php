@@ -49,18 +49,75 @@ class BoletinService
     }
 
     /**
+     * Qué notas lleva el boletín: las de un solo módulo, las del semestre
+     * (los dos módulos y su promedio) o, en el segundo semestre de un ciclo de
+     * un año, las de los dos semestres.
+     */
+    public const SPANS = ['m1', 'm2', 'semestre', 'anio'];
+
+    public function __construct(private TermService $term) {}
+
+    /**
+     * Las lecturas que tiene un ciclo, con el nombre que se muestra. El año
+     * solo existe en el segundo semestre de un ciclo de un año.
+     *
+     * @return array<string, string>
+     */
+    public static function spans(Cycle $cycle): array
+    {
+        $spans = ['m1' => __('Módulo 1'), 'm2' => __('Módulo 2'), 'semestre' => __('Semestre')];
+
+        if ($cycle->previousCycle !== null) {
+            $spans['anio'] = __('Año (:first + :second)', ['first' => $cycle->previousCycle->level, 'second' => $cycle->level]);
+        }
+
+        return $spans;
+    }
+
+    /**
+     * La lectura pedida si el ciclo la tiene; si no, el semestre.
+     */
+    public static function span(?string $span, Cycle $cycle): string
+    {
+        return array_key_exists((string) $span, self::spans($cycle)) ? (string) $span : 'semestre';
+    }
+
+    /**
+     * El boletín según la lectura: m1, m2, semestre o anio.
+     *
+     * @return array<string, mixed>
+     */
+    public function forSpan(Student $student, Cycle $cycle, ?string $span): array
+    {
+        $span = self::span($span, $cycle);
+
+        return $this->generate($student, $cycle, $span === 'anio', match ($span) {
+            'm1' => 1,
+            'm2' => 2,
+            default => null,
+        });
+    }
+
+    /**
      * Build the report-card data for a student within a cycle. When
      * $bothSemesters is set and the cycle has a previous cycle, each line
      * carries the prior semester (sem1), current semester (sem2) and their
-     * average (final).
+     * average (final). With $period, only that module's grades: the final of
+     * each line is the module's grade.
+     *
+     * Each area line carries its subjects in `components`, every one with the
+     * same columns as the area, so the report shows where each number of the
+     * area comes from.
+     *
+     * @return array<string, mixed>
      */
-    public function generate(Student $student, Cycle $cycle, bool $bothSemesters = false): array
+    public function generate(Student $student, Cycle $cycle, bool $bothSemesters = false, ?int $period = null): array
     {
         $enrollment = $student->enrollments()->with('group')->where('cycle_id', $cycle->id)->first();
-        $previous = $bothSemesters ? $cycle->previousCycle : null;
+        $previous = $bothSemesters && $period === null ? $cycle->previousCycle : null;
         $both = $previous !== null;
 
-        $current = $this->subjectData($student, $cycle, $enrollment?->group_id);
+        $current = $this->subjectData($student, $cycle, $enrollment?->group_id, $period);
 
         if ($both) {
             $prevGroupId = $student->enrollments()->where('cycle_id', $previous->id)->value('group_id');
@@ -82,6 +139,16 @@ class BoletinService
             'cycle_label' => $this->cycleLabel($cycle, $both),
             'previous' => $previous,
             'both' => $both,
+            'period' => $period,
+            'span' => $period !== null ? "m{$period}" : ($both ? 'anio' : 'semestre'),
+            'detail_columns' => match (true) {
+                $period !== null => [],
+                $both => [['key' => 'sem1', 'label' => __('Sem 1')], ['key' => 'sem2', 'label' => __('Sem 2')]],
+                default => [['key' => 'p1', 'label' => __('Mód. 1')], ['key' => 'p2', 'label' => __('Mód. 2')]],
+            },
+            'final_label' => $period !== null ? __('Nota') : __('Final'),
+            'partial' => $this->isPartial($cycle, $period, $previous),
+            'has_areas' => in_array('area', array_column($lines, 'type'), true),
             'group' => $enrollment?->group?->name,
             'lines' => $lines,
             'overall' => $overall,
@@ -90,11 +157,28 @@ class BoletinService
     }
 
     /**
+     * Las notas pueden cambiar mientras siga abierto algún módulo de los que
+     * lleva el boletín: el suyo, los dos del semestre o los cuatro del año.
+     */
+    private function isPartial(Cycle $cycle, ?int $period, ?Cycle $previous): bool
+    {
+        if ($period !== null) {
+            return ! $this->term->isModuleClosed($cycle, $period);
+        }
+
+        return ! $this->term->isClosed($cycle) || ($previous !== null && ! $this->term->isClosed($previous));
+    }
+
+    /**
      * @return array<int, array{name: string, teacher: ?string, periods: array<int, float|string|null>}>
      */
-    private function subjectData(Student $student, Cycle $cycle, ?int $groupId): array
+    private function subjectData(Student $student, Cycle $cycle, ?int $groupId, ?int $period = null): array
     {
         ['courses' => $courses, 'held' => $held] = $this->groupCourses($cycle, $groupId);
+
+        if ($period !== null) {
+            $courses = $courses->where('period', $period);
+        }
 
         $scores = Grade::query()
             ->where('student_id', $student->id)
@@ -255,12 +339,7 @@ class BoletinService
                 (int) array_sum(array_column($members, 'held')),
                 (int) array_sum(array_column($members, 'absences')),
             ),
-            'components' => array_values(array_map(
-                fn (array $m) => $both
-                    ? ['name' => $m['name'], 'teacher' => $m['teacher'] ?? null, 'sem1' => $m['sem1'], 'sem2' => $m['sem2'], 'final' => $m['final']]
-                    : ['name' => $m['name'], 'teacher' => $m['teacher'] ?? null, 'final' => $m['final']],
-                $members,
-            )),
+            'components' => $this->components($members, $both),
         ];
 
         if ($both) {
@@ -272,6 +351,53 @@ class BoletinService
         }
 
         return $line;
+    }
+
+    /**
+     * Las materias de un área, por nombre, cada una con las mismas columnas
+     * del área (módulos o semestres, final y fallas).
+     *
+     * @param  array<int, array<string, mixed>>  $members
+     * @return list<array<string, mixed>>
+     */
+    private function components(array $members, bool $both): array
+    {
+        $components = array_values(array_map(fn (array $m) => [
+            'name' => $m['name'],
+            'teacher' => $m['teacher'] ?? null,
+            ...($both ? ['sem1' => $m['sem1'], 'sem2' => $m['sem2']] : ['p1' => $m['p1'], 'p2' => $m['p2']]),
+            'final' => $m['final'],
+            'performance' => self::performance($m['final']),
+            'held' => $m['held'],
+            'absences' => $m['absences'],
+            'lost_by_absence' => $m['lost_by_absence'],
+        ], $members));
+
+        usort($components, fn (array $a, array $b) => strcmp($a['name'], $b['name']));
+
+        return $components;
+    }
+
+    /**
+     * Cuántas asignaturas pierde un boletín: las sueltas y, dentro de cada
+     * área, cada una de sus materias. Es la cuenta del certificado: el
+     * promedio del área no tapa una materia perdida.
+     *
+     * @param  list<array<string, mixed>>  $lines
+     */
+    public static function failedSubjects(array $lines): int
+    {
+        $failed = 0;
+
+        foreach ($lines as $line) {
+            foreach ($line['components'] ?: [$line] as $subject) {
+                if ($subject['final'] !== null && $subject['final'] < self::PASSING_SCORE) {
+                    $failed++;
+                }
+            }
+        }
+
+        return $failed;
     }
 
     /**

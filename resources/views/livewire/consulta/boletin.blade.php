@@ -43,21 +43,22 @@
                 </div>
             @endif
 
-            @if ($cycle && ! $cycle->isClosed())
-                <div class="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 print:hidden">
-                    <flux:icon name="clock" class="mt-0.5 size-5 shrink-0 text-amber-600" />
-                    <div>
-                        <div class="text-sm font-medium text-amber-900">{{ __('Semestre en curso') }}</div>
-                        <p class="mt-0.5 text-sm text-amber-800">
-                            {{ __('Este boletín es parcial: los docentes todavía pueden registrar o corregir notas y asistencias hasta que se cierre el semestre.') }}
-                        </p>
-                    </div>
+            @if ($cycle)
+                <div class="print:hidden">
+                    <div class="mb-1.5 text-xs font-medium text-zinc-500">{{ __('Qué notas quieres ver') }}</div>
+                    <x-segmented :options="$spans" :value="$currentSpan" property="span" :label="__('Qué notas quieres ver')" track="bg-zinc-200" />
                 </div>
             @endif
 
-            @if ($hasPrevious)
-                <div class="print:hidden">
-                    <flux:checkbox wire:model.live="bothSemesters" :label="__('Incluir el semestre anterior (boletín de los dos semestres)')" />
+            @if ($boletin && $boletin['partial'])
+                <div class="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 print:hidden">
+                    <flux:icon name="clock" class="mt-0.5 size-5 shrink-0 text-amber-600" />
+                    <div>
+                        <div class="text-sm font-medium text-amber-900">{{ in_array($currentSpan, ['m1', 'm2'], true) ? __(':module en curso', ['module' => $spans[$currentSpan]]) : __('Semestre en curso') }}</div>
+                        <p class="mt-0.5 text-sm text-amber-800">
+                            {{ __('Este boletín es parcial: los docentes todavía pueden registrar o corregir notas y asistencias hasta que se cierre.') }}
+                        </p>
+                    </div>
                 </div>
             @endif
 
@@ -74,7 +75,7 @@
                     </div>
                 @endunless
 
-                @php $downloadParams = $bothSemesters && $hasPrevious ? ['both' => 1] : []; @endphp
+                @php $downloadParams = $currentSpan !== 'semestre' ? ['notas' => $currentSpan] : []; @endphp
 
                 <div class="flex flex-wrap items-center gap-3 print:hidden">
                     <flux:button

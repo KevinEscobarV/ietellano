@@ -196,7 +196,36 @@ it('ofrece cada semestre suelto y el boletín de los dos semestres', function ()
     // Quien se retiró después del primer semestre solo tiene ese boletín.
     Livewire::test(Boletin::class)
         ->assertSee('Ciclo 5 del año pasado')
-        ->assertSee('Incluir el semestre anterior');
+        ->assertSee('Año (5 + 5)')
+        ->set('span', 'anio')
+        ->assertViewHas('boletin', fn (array $boletin) => $boletin['both'] && $boletin['span'] === 'anio');
+});
+
+it('deja ver el boletín de un solo módulo', function () {
+    session([Boletin::SESSION_KEY => $this->student->id]);
+
+    Livewire::test(Boletin::class)
+        ->assertSee('Módulo 1')
+        ->assertSee('Módulo 2')
+        ->set('span', 'm2')
+        ->assertViewHas('boletin', fn (array $boletin) => $boletin['period'] === 2 && $boletin['overall'] === 3.0)
+        ->assertSee(route('consulta.boletin.download', ['cycle' => $this->cycle->id, 'notas' => 'm2']), false)
+        // Un semestre de un solo ciclo no tiene año: se queda en el semestre.
+        ->set('span', 'anio')
+        ->assertViewHas('boletin', fn (array $boletin) => $boletin['span'] === 'semestre');
+});
+
+it('avisa que el módulo sigue en curso aunque el otro ya esté cerrado', function () {
+    $this->cycle->reopen();
+    $this->cycle->closeModule(1);
+
+    session([Boletin::SESSION_KEY => $this->student->id]);
+
+    Livewire::test(Boletin::class)
+        ->set('span', 'm1')
+        ->assertDontSee('en curso')
+        ->set('span', 'm2')
+        ->assertSee('Módulo 2 en curso');
 });
 
 it('le muestra su boletín a quien no siguió al segundo semestre', function () {
@@ -243,6 +272,14 @@ it('descarga el PDF del estudiante que hizo la consulta', function () {
     $response->assertOk();
 
     expect($response->headers->get('content-type'))->toContain('application/pdf');
+});
+
+it('descarga el PDF de un solo módulo', function () {
+    session([Boletin::SESSION_KEY => $this->student->id]);
+
+    $this->get(route('consulta.boletin.download', ['cycle' => $this->cycle, 'notas' => 'm1']))
+        ->assertOk()
+        ->assertDownload('boletin-arevalo-hernandez-lineth-yuliana-1118544017-modulo-1.pdf');
 });
 
 it('no entrega ningún PDF sin consulta previa', function () {

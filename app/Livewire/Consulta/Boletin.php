@@ -25,7 +25,11 @@ class Boletin extends Component
 
     public ?int $cycleId = null;
 
-    public bool $bothSemesters = false;
+    /**
+     * Qué notas lleva el boletín: un módulo, el semestre o el año
+     * (BoletinService::SPANS).
+     */
+    public string $span = 'semestre';
 
     public function mount(): void
     {
@@ -70,7 +74,7 @@ class Boletin extends Component
     {
         if ($this->cycles->contains('id', $cycleId)) {
             $this->cycleId = $cycleId;
-            $this->bothSemesters = false;
+            $this->span = 'semestre';
         }
     }
 
@@ -91,10 +95,10 @@ class Boletin extends Component
 
         $cycles = $student === null ? new Collection : $this->cycles;
         $cycle = $cycles->firstWhere('id', $this->cycleId);
-        $hasPrevious = (bool) $cycle?->previous_cycle_id;
+        $span = $cycle ? BoletinService::span($this->span, $cycle) : 'semestre';
 
         $boletin = $student !== null && $cycle !== null
-            ? $service->generate($student, $cycle, $this->bothSemesters && $hasPrevious)
+            ? $service->forSpan($student, $cycle, $span)
             : null;
 
         return view('livewire.consulta.boletin', [
@@ -102,7 +106,8 @@ class Boletin extends Component
             'cycles' => $cycles,
             'cycle' => $cycle,
             'boletin' => $boletin,
-            'hasPrevious' => $hasPrevious,
+            'spans' => $cycle ? BoletinService::spans($cycle) : [],
+            'currentSpan' => $span,
             'hasGrades' => $boletin !== null && collect($boletin['lines'])->contains(fn (array $line) => $line['final'] !== null),
             'passingScore' => BoletinService::PASSING_SCORE,
         ]);

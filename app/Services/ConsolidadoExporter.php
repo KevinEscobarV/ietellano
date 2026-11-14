@@ -24,18 +24,27 @@ class ConsolidadoExporter
     private const TEXT_ROWS = ['title', 'subtitle', 'muted', 'seal-provisional', 'seal-definitive'];
 
     /**
-     * La tabla del ciclo y una hoja con la nota de cada módulo (o de cada
-     * semestre) por materia. En el año, una hoja más con quienes cursaron el
-     * primer semestre y no siguieron. Devuelve la ruta de un archivo temporal.
+     * La tabla del ciclo por áreas y por materias (sale con las dos, sin
+     * importar cuál se ve en pantalla: en Excel se filtra) y una hoja con la
+     * nota de cada módulo (o de cada semestre) por materia. En el año, una hoja
+     * más con quienes cursaron el primer semestre y no siguieron. Devuelve la
+     * ruta de un archivo temporal.
      *
      * @param  array<string, mixed>  $consolidado
      */
     public function cycleWorkbook(array $consolidado): string
     {
         $book = new XlsxWriter;
+        $bySubject = ConsolidadoService::groupedBy($consolidado, 'materias');
 
-        $this->consolidadoSheet($book, $consolidado, __('Consolidado'));
-        $this->detailSheet($book, $consolidado, $consolidado['year'] ? __('Detalle por semestre') : __('Detalle por módulo'));
+        if ($consolidado['has_areas']) {
+            $this->consolidadoSheet($book, ConsolidadoService::groupedBy($consolidado, 'areas'), __('Por área'));
+            $this->consolidadoSheet($book, $bySubject, __('Por materia'));
+        } else {
+            $this->consolidadoSheet($book, $consolidado, __('Consolidado'));
+        }
+
+        $this->detailSheet($book, $bySubject, $consolidado['year'] ? __('Detalle por semestre') : __('Detalle por módulo'));
 
         if ($consolidado['dropped'] !== []) {
             $this->droppedSheet($book, $consolidado);
@@ -125,16 +134,25 @@ class ConsolidadoExporter
             default => '',
         };
 
+        // El Excel trae las dos lecturas; el PDF, la que se ve en pantalla.
+        if ($extension === 'pdf' && $consolidado['by'] === 'materias') {
+            $parts[] = 'por materia';
+        }
+
         return Str::slug(implode(' ', $parts)).'.'.$extension;
     }
 
-    public function termFileName(int $year, int $semester, string $view, string $extension): string
+    public function termFileName(int $year, int $semester, string $view, string $extension, string $by = 'areas'): string
     {
         $suffix = match ($view) {
             'm1' => ' modulo 1',
             'm2' => ' modulo 2',
             default => '',
         };
+
+        if ($by === 'materias') {
+            $suffix .= ' por materia';
+        }
 
         return Str::slug("consolidado {$year}-{$semester}{$suffix}").'.'.$extension;
     }
@@ -235,6 +253,32 @@ class ConsolidadoExporter
         array_push($header, __('Promedio'), __('Desempeño'), __('Puesto'), __('Pierde'), __('Faltan'));
 
         $rows = $this->heading($c['title'].' · '.$c['scope'], $c['status'], $this->summaryLine($c['summary']));
+        $merge = [];
+
+        // Por materia, un renglón arriba con el nombre del área sobre sus
+        // materias, para que se vea que Inglés y Lengua van juntas.
+        $grouped = $c['by'] === 'materias' && $c['has_areas'];
+
+        if ($grouped) {
+            $groupRow = count($rows) + 1;
+            $line = array_fill(0, $fixed, XlsxWriter::cell(null, 'header'));
+            $index = $fixed;
+
+            foreach ($c['column_groups'] as $group) {
+                for ($offset = 0; $offset < $group['span']; $offset++) {
+                    $line[] = XlsxWriter::cell($offset === 0 ? $group['area'] : null, 'header');
+                }
+
+                if ($group['span'] > 1) {
+                    $merge[] = XlsxWriter::column($index).$groupRow.':'.XlsxWriter::column($index + $group['span'] - 1).$groupRow;
+                }
+
+                $index += $group['span'];
+            }
+
+            $rows[] = [...$line, ...array_fill(0, count($header) - $index, XlsxWriter::cell(null, 'header'))];
+        }
+
         $headerRow = count($rows) + 1;
         $rows[] = array_map(fn (string $title) => XlsxWriter::cell($title, 'header'), $header);
 
@@ -295,6 +339,12 @@ class ConsolidadoExporter
         $rows[] = [];
         $rows[] = [XlsxWriter::cell($this->legend(), 'muted')];
 
+        if ($c['has_areas']) {
+            $rows[] = [XlsxWriter::cell($c['by'] === 'areas'
+                ? __('La nota de un área es el promedio de sus materias. En amarillo, las áreas que se aprueban aunque una de sus materias está perdida; el consolidado por materia dice cuál. «Pierde» cuenta materias, como el certificado.')
+                : __('Las materias de un área van bajo su nombre. El promedio y el puesto son los del boletín, por áreas; «Pierde» cuenta materias, como el certificado.'), 'muted')];
+        }
+
         if ($c['year']) {
             $rows[] = [XlsxWriter::cell($this->yearLegend($c), 'muted')];
         }
@@ -315,8 +365,9 @@ class ConsolidadoExporter
             'heights' => [$headerRow => 32],
             'freeze' => [2, $headerRow],
             'filter' => 'A'.$headerRow.':'.XlsxWriter::column(count($header) - 1).max($lastDataRow, $headerRow),
+            'merge' => $merge,
             'landscape' => true,
-            'repeat' => [$headerRow, $headerRow],
+            'repeat' => [$grouped ? $headerRow - 1 : $headerRow, $headerRow],
         ]);
     }
 
@@ -667,7 +718,7 @@ class ConsolidadoExporter
     }
 
     /**
-     * @param  array{score: ?float, complete: bool, failed: bool}|null  $cell
+     * @param  array{score: ?float, complete: bool, failed: bool, hides_loss?: bool}|null  $cell
      * @return array{value: ?float, style: string}
      */
     private function scoreCell(?array $cell): array
@@ -681,6 +732,7 @@ class ConsolidadoExporter
             ! $cell['complete'] && $cell['failed'] => 'score-pending-fail',
             ! $cell['complete'] => 'score-pending',
             $cell['failed'] => 'score-fail',
+            $cell['hides_loss'] ?? false => 'score-warn',
             default => 'score',
         };
 

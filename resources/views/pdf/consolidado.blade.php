@@ -39,6 +39,8 @@
         table.grid td.name { white-space: nowrap; }
         table.grid td.muted { color: #a1a1aa; }
         table.grid td.fail { background-color: #fef2f2; color: #b91c1c; font-weight: bold; }
+        table.grid td.warn { background-color: #fffbeb; color: #92400e; }
+        table.grid th.group { background-color: #e4e4e7; color: #3f3f46; }
         table.grid td.pending { color: #a1a1aa; font-style: italic; }
         table.grid td.strong { font-weight: bold; }
         table.grid tr { page-break-inside: avoid; }
@@ -110,6 +112,9 @@
         @php
             $s = $c['summary'];
             $showPending = $s['pending_cells'] > 0 || $s['without_previous'] > 0;
+            $grouped = $c['by'] === 'materias' && $c['has_areas'];
+            $rowspan = $grouped ? 2 : 1;
+            $hidesLoss = collect($c['rows'])->contains(fn ($row) => collect($row['cells'])->contains(fn ($cell) => $cell['hides_loss']));
         @endphp
 
         <div class="{{ $termLabel || ! $loop->first ? 'page-break' : '' }}">
@@ -159,21 +164,42 @@
             <table class="grid">
                 <thead>
                     <tr>
-                        <th style="width: 16px;">N°</th>
-                        <th class="name">Estudiante</th>
+                        <th rowspan="{{ $rowspan }}" style="width: 16px;">N°</th>
+                        <th rowspan="{{ $rowspan }}" class="name">Estudiante</th>
                         @if ($c['showGroup'])
-                            <th>Grupo</th>
+                            <th rowspan="{{ $rowspan }}">Grupo</th>
                         @endif
-                        @foreach ($c['columns'] as $column)
-                            <th>{{ $column['name'] }}</th>
-                        @endforeach
-                        <th>Prom.</th>
-                        <th>Puesto</th>
-                        <th>Pierde</th>
+                        @if ($grouped)
+                            @php $offset = 0; @endphp
+                            @foreach ($c['column_groups'] as $group)
+                                @if ($group['area'] !== null)
+                                    <th class="group" colspan="{{ $group['span'] }}">{{ $group['area'] }}</th>
+                                @else
+                                    <th rowspan="2">{{ $c['columns'][$offset]['name'] }}</th>
+                                @endif
+                                @php $offset += $group['span']; @endphp
+                            @endforeach
+                        @else
+                            @foreach ($c['columns'] as $column)
+                                <th>{{ $column['name'] }}</th>
+                            @endforeach
+                        @endif
+                        <th rowspan="{{ $rowspan }}">Prom.</th>
+                        <th rowspan="{{ $rowspan }}">Puesto</th>
+                        <th rowspan="{{ $rowspan }}">Pierde</th>
                         @if ($showPending)
-                            <th>Faltan</th>
+                            <th rowspan="{{ $rowspan }}">Faltan</th>
                         @endif
                     </tr>
+                    @if ($grouped)
+                        <tr>
+                            @foreach ($c['columns'] as $column)
+                                @if ($column['area'] !== null)
+                                    <th>{{ $column['name'] }}</th>
+                                @endif
+                            @endforeach
+                        </tr>
+                    @endif
                 </thead>
                 <tbody>
                     @foreach ($c['rows'] as $row)
@@ -193,7 +219,7 @@
                                 @if ($cell === null)
                                     <td></td>
                                 @else
-                                    <td class="{{ $cell['failed'] ? 'fail' : '' }} {{ $cell['complete'] ? '' : 'pending' }}">{{ $num($cell['score']) }}</td>
+                                    <td class="{{ $cell['failed'] ? 'fail' : '' }} {{ $cell['hides_loss'] ? 'warn' : '' }} {{ $cell['complete'] ? '' : 'pending' }}">{{ $num($cell['score']) }}{{ $cell['hides_loss'] ? '*' : '' }}</td>
                                 @endif
                             @endforeach
                             <td class="{{ $isFail($row['average']) ? 'fail' : 'strong' }}">{{ $num($row['average']) }}</td>
@@ -235,6 +261,12 @@
                 En rojo, las notas por debajo de {{ number_format($passingScore, 1) }}.
                 @if ($showPending)
                     En gris y cursiva, las que todavía no están completas porque falta la nota de algún módulo{{ $c['year'] ? ' o de algún semestre' : '' }}.
+                @endif
+                @if ($hidesLoss)
+                    * El área se aprueba, pero una de sus materias está perdida (el consolidado por materia dice cuál).
+                @endif
+                @if ($c['has_areas'])
+                    «Pierde» cuenta materias, como el certificado.
                 @endif
                 @if ($c['year'])
                     Nota del año: promedio de la definitiva de {{ $c['yearParts']['previous'] }} y la de {{ $c['yearParts']['current'] }}.
