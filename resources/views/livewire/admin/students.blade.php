@@ -1,9 +1,9 @@
 <section class="w-full">
     {{-- Page Header --}}
-    <div class="mb-8 flex items-start justify-between">
+    <div class="mb-8 flex flex-wrap items-start justify-between gap-3">
         <div>
-            <div class="mb-1 flex items-center gap-2">
-                <flux:icon name="academic-cap" class="size-6 text-zinc-500 dark:text-zinc-400" />
+            <div class="mb-1.5 flex items-center gap-3">
+                <flux:icon name="academic-cap" class="panel-icon" />
                 <flux:heading size="xl" level="1">{{ __('Estudiantes') }}</flux:heading>
             </div>
             <flux:subheading>{{ __('Administrar estudiantes y sus matrículas') }}</flux:subheading>
@@ -56,7 +56,7 @@
                     <flux:table.cell>
                         <div class="flex items-center justify-end gap-1">
                             <flux:button wire:click="openEdit({{ $student->id }})" size="sm" icon="pencil" variant="ghost" inset="top bottom" :tooltip="__('Editar')" />
-                            <flux:button wire:click="openDelete({{ $student->id }})" size="sm" icon="trash" variant="danger" inset="top bottom" :tooltip="__('Eliminar')" />
+                            <flux:button wire:click="openDelete({{ $student->id }})" size="sm" icon="trash" variant="ghost" class="row-danger" inset="top bottom" :tooltip="__('Eliminar')" />
                         </div>
                     </flux:table.cell>
                 </flux:table.row>

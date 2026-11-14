@@ -120,6 +120,62 @@ describe('tablero del semestre', function () {
             ->assertViewHas('enrollment', fn (array $e) => $e['total'] === 0);
     });
 
+    test('cuenta los cursos que ya tienen todas sus notas', function () {
+        Grade::create(['course_id' => $this->course->id, 'student_id' => $this->ana->id, 'score' => 4.5]);
+
+        Livewire::actingAs($this->admin)->test(Dashboard::class)
+            ->assertViewHas('courseTotals', fn (array $c) => $c['total'] === 1 && $c['complete'] === 0);
+
+        Grade::create(['course_id' => $this->course->id, 'student_id' => $this->beto->id, 'score' => 3.5]);
+
+        Livewire::actingAs($this->admin)->test(Dashboard::class)
+            ->assertViewHas('courseTotals', fn (array $c) => $c['total'] === 1 && $c['complete'] === 1);
+    });
+
+    test('compara la matrícula y el promedio con el semestre anterior', function () {
+        // Sin semestre anterior no hay con qué comparar.
+        Livewire::actingAs($this->admin)->test(Dashboard::class)
+            ->assertViewHas('comparison', fn (array $c) => $c['term'] === null && $c['enrollment'] === null && $c['average'] === null);
+
+        $before = Cycle::create([
+            'code' => 'C5-2026-1',
+            'level' => '5',
+            'semester' => 1,
+            'year' => 2026,
+            'name' => 'Ciclo 5',
+        ]);
+
+        $course = Course::create([
+            'code' => 'C51MATM1S12026',
+            'cycle_id' => $before->id,
+            'subject_id' => $this->course->subject_id,
+            'teacher_id' => $this->teacher->id,
+            'period' => 1,
+        ]);
+
+        // El semestre pasado: un solo matriculado, con 3.0. Este: dos, con 4.0.
+        Enrollment::create(['student_id' => $this->ana->id, 'cycle_id' => $before->id]);
+        Grade::create(['course_id' => $course->id, 'student_id' => $this->ana->id, 'score' => 3.0]);
+        Grade::create(['course_id' => $this->course->id, 'student_id' => $this->ana->id, 'score' => 4.0]);
+
+        Livewire::actingAs($this->admin)->test(Dashboard::class)
+            ->assertViewHas('comparison', fn (array $c) => $c['term'] === '2026-1' && $c['enrollment'] === 100 && $c['average'] === 1.0)
+            ->assertSee('frente a 2026-1');
+    });
+
+    test('pinta el tablero con y sin notas', function () {
+        Livewire::actingAs($this->admin)->test(Dashboard::class)
+            ->assertSee('Matrícula por ciclo')
+            ->assertSee('Todavía no hay notas cargadas en este semestre.');
+
+        Grade::create(['course_id' => $this->course->id, 'student_id' => $this->ana->id, 'score' => 4.8]);
+
+        Livewire::actingAs($this->admin)->test(Dashboard::class)
+            ->assertSee('Superior')
+            ->assertSee('promedio')
+            ->assertDontSee('Todavía no hay notas cargadas en este semestre.');
+    });
+
     test('al docente sin cargo administrativo lo manda a sus materias', function () {
         $user = User::factory()->create();
         $user->assignRole(Role::findOrCreate('docente')->name);

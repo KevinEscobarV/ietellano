@@ -36,12 +36,12 @@
 
     {{-- Resumen del semestre --}}
     <div class="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4" data-tour="summary">
-        <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+        <div class="rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none p-4 dark:border-zinc-700 dark:bg-zinc-900">
             <div class="text-xs font-medium uppercase tracking-wide text-zinc-500">{{ __('Materias') }}</div>
             <div class="mt-1 text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $summary['courses'] }}</div>
         </div>
 
-        <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+        <div class="rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none p-4 dark:border-zinc-700 dark:bg-zinc-900">
             <div class="text-xs font-medium uppercase tracking-wide text-zinc-500">{{ __('Estudiantes') }}</div>
             <div class="mt-1 text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $summary['students'] }}</div>
         </div>
@@ -59,7 +59,7 @@
             ])>{{ $summary['pending'] }}</div>
         </div>
 
-        <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+        <div class="rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none p-4 dark:border-zinc-700 dark:bg-zinc-900">
             <div class="text-xs font-medium uppercase tracking-wide text-zinc-500">{{ __('Promedio general') }}</div>
             <div class="mt-1 text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">
                 {{ $summary['average'] !== null ? number_format($summary['average'], 2) : '—' }}
@@ -76,7 +76,7 @@
                     wire:click="$set('cycleId', '')"
                     @class([
                         'rounded-full px-3 py-1.5 text-sm font-medium transition',
-                        'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' => $cycleId === '',
+                        'bg-accent text-accent-foreground shadow-xs' => $cycleId === '',
                         'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700' => $cycleId !== '',
                     ])
                 >{{ __('Todos') }}</button>
@@ -88,7 +88,7 @@
                         wire:click="$set('cycleId', '{{ $cycle->id }}')"
                         @class([
                             'rounded-full px-3 py-1.5 text-sm font-medium transition',
-                            'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900' => $cycleId === (string) $cycle->id,
+                            'bg-accent text-accent-foreground shadow-xs' => $cycleId === (string) $cycle->id,
                             'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700' => $cycleId !== (string) $cycle->id,
                         ])
                     >{{ $cycle->label }}</button>
@@ -134,7 +134,7 @@
                 <div
                     wire:key="course-{{ $card['id'] }}"
                     @if ($loop->first) data-tour="course" @endif
-                    class="group relative flex flex-col gap-4 rounded-xl border border-zinc-200 bg-white p-5 transition hover:border-zinc-300 hover:shadow-md focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-emerald-500 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600"
+                    class="group relative flex flex-col gap-4 rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none p-5 transition hover:border-zinc-300 hover:shadow-md focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600"
                 >
                     <div class="flex items-start justify-between gap-3">
                         <div class="flex flex-wrap items-center gap-1.5">

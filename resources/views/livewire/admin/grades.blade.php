@@ -1,8 +1,8 @@
 <section class="w-full">
     {{-- Page Header --}}
     <div class="mb-8">
-        <div class="mb-1 flex items-center gap-2">
-            <flux:icon name="arrow-up-tray" class="size-6 text-zinc-500 dark:text-zinc-400" />
+        <div class="mb-1.5 flex items-center gap-3">
+            <flux:icon name="arrow-up-tray" class="panel-icon" />
             <flux:heading size="xl" level="1">{{ __('Calificaciones') }}</flux:heading>
         </div>
         <flux:subheading>{{ __('Sube los archivos .xlsx de notas. El nombre de cada archivo debe ser el código del curso (ej. C5MATM1.xlsx).') }}</flux:subheading>

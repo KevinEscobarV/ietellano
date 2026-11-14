@@ -30,7 +30,7 @@
 
             {{-- El hueco iluminado. La sombra enorme es la que oscurece todo lo demás. --}}
             <div
-                class="pointer-events-none fixed rounded-xl shadow-[0_0_0_9999px_rgb(6_16_12/0.62)] ring-2 ring-llano-emerald/80 transition-all duration-300 ease-out motion-reduce:transition-none"
+                class="pointer-events-none fixed rounded-xl shadow-[0_0_0_9999px_rgb(6_16_12/0.62)] ring-2 ring-accent/80 transition-all duration-300 ease-out motion-reduce:transition-none"
                 :style="spotlightStyle()"
             ></div>
 
@@ -39,12 +39,12 @@
                 class="fixed overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 transition-[top,left] duration-300 ease-out motion-reduce:transition-none dark:bg-zinc-900 dark:ring-white/10"
                 :style="cardStyle()"
             >
-                <div class="h-1 bg-gradient-to-r from-llano-jade via-llano-emerald to-llano-gold"></div>
+                <div class="h-1 bg-accent"></div>
 
                 <div class="p-5">
                     <div class="mb-2 flex items-center justify-between gap-3">
                         <span
-                            class="text-xs font-semibold uppercase tracking-wide text-llano-jade dark:text-llano-emerald"
+                            class="text-xs font-semibold uppercase tracking-wide text-accent-content"
                             x-text="@js(__('Paso :current de :total')).replace(':current', index + 1).replace(':total', visible.length)"
                         ></span>
 
@@ -63,7 +63,7 @@
                             <template x-for="(_, dot) in visible" :key="dot">
                                 <span
                                     class="h-1.5 rounded-full transition-all duration-300"
-                                    :class="dot === index ? 'w-5 bg-llano-emerald' : 'w-1.5 bg-zinc-200 dark:bg-zinc-700'"
+                                    :class="dot === index ? 'w-5 bg-accent' : 'w-1.5 bg-zinc-200 dark:bg-zinc-700'"
                                 ></span>
                             </template>
                         </div>
@@ -80,7 +80,7 @@
                                 type="button"
                                 :id="`tour-${name}-next`"
                                 x-on:click="next()"
-                                class="rounded-lg bg-zinc-900 px-3.5 py-1.5 text-sm font-medium text-white transition hover:bg-zinc-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-llano-emerald focus-visible:ring-offset-2 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 dark:focus-visible:ring-offset-zinc-900"
+                                class="rounded-lg bg-accent px-3.5 py-1.5 text-sm font-medium text-accent-foreground transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 dark:focus-visible:ring-offset-zinc-900"
                                 x-text="isLast ? @js(__('¡Entendido!')) : @js(__('Siguiente'))"
                             ></button>
                         </div>

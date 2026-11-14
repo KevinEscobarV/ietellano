@@ -9,7 +9,7 @@
     $toneFor = function (?float $score): array {
         if ($score === null) {
             return [
-                'field' => 'border-zinc-300 focus:border-emerald-500 focus:ring-emerald-500/30 dark:border-zinc-600',
+                'field' => 'border-zinc-300 focus:border-accent focus:ring-accent/30 dark:border-zinc-600',
                 'chip' => 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400',
                 'label' => __('Sin nota'),
             ];
@@ -107,7 +107,7 @@
         x-data="{ saved: false, timer: null }"
         @grade-saved.window="saved = true; clearTimeout(timer); timer = setTimeout(() => saved = false, 2200)"
         data-tour="progress"
-        class="sticky top-0 z-10 mb-4 rounded-xl border border-zinc-200 bg-white/95 p-4 backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95"
+        class="sticky top-0 z-10 mb-4 rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none/95 p-4 backdrop-blur dark:border-zinc-700 dark:bg-zinc-900/95"
     >
         <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
             <div class="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">

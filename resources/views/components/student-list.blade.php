@@ -5,7 +5,7 @@
      notas tiene de las que le tocan. Escribe en studentId, search y groupId
      del componente de Livewire. --}}
 
-<div {{ $attributes->class('flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900 print:hidden') }} data-tour="students">
+<div {{ $attributes->class('flex flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none dark:border-zinc-700 dark:bg-zinc-900 print:hidden') }} data-tour="students">
     <div class="space-y-2 border-b border-zinc-100 p-3 dark:border-zinc-800">
         <flux:input
             wire:model.live.debounce.300ms="search"
@@ -48,13 +48,13 @@
                     aria-pressed="{{ $active ? 'true' : 'false' }}"
                     @class([
                         'flex w-full items-center gap-3 px-3 py-2.5 text-left transition',
-                        'bg-llano-emerald/10 dark:bg-llano-emerald/15' => $active,
+                        'bg-accent/10 dark:bg-accent/15' => $active,
                         'hover:bg-zinc-50 dark:hover:bg-zinc-800/60' => ! $active,
                     ])
                 >
                     <span @class([
                         'w-1 self-stretch rounded-full',
-                        'bg-llano-jade dark:bg-llano-emerald' => $active,
+                        'bg-accent' => $active,
                         'bg-transparent' => ! $active,
                     ])></span>
 

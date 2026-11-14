@@ -46,15 +46,20 @@ class Dashboard extends Component
         $courses = $this->courses($cycles);
         $roster = $this->rosterSizes($cycles);
         $graded = $this->gradedCounts($courses);
+        $terms = $this->terms();
+        $enrollment = $this->enrollment($cycles, $roster);
+        $performance = $this->performance($courses);
 
         return view('livewire.dashboard', [
-            'terms' => $this->terms(),
-            'enrollment' => $this->enrollment($cycles, $roster),
+            'terms' => $terms,
+            'enrollment' => $enrollment,
             'progress' => $this->progress($cycles, $courses, $roster, $graded),
+            'courseTotals' => $this->courseTotals($courses, $roster, $graded),
             'behind' => $this->behind($courses, $roster, $graded),
             'alerts' => $this->alerts($cycles, $courses),
-            'performance' => $this->performance($courses),
+            'performance' => $performance,
             'atRisk' => $this->atRisk($cycles, $courses),
+            'comparison' => $this->comparison($terms, $enrollment['total'], $performance['average']),
         ]);
     }
 
@@ -192,6 +197,7 @@ class Dashboard extends Component
     {
         $lines = $cycles->map(fn (Cycle $cycle) => [
             'label' => $cycle->label,
+            'name' => $cycle->name,
             'total' => $roster['by_cycle'][$cycle->id] ?? 0,
             'new' => $roster['new'][$cycle->id] ?? 0,
             'groups' => $cycle->groups
@@ -239,6 +245,67 @@ class Dashboard extends Component
             'expected' => $expected,
             'percent' => $expected > 0 ? (int) round($done / $expected * 100) : 0,
             'cycles' => $lines,
+        ];
+    }
+
+    /**
+     * Cuántos cursos tiene el semestre y cuántos ya tienen todas sus notas.
+     *
+     * @param  Collection<int, Course>  $courses
+     * @param  array{by_cycle: array<int, int>, by_group: array<string, int>, new: array<int, int>}  $roster
+     * @param  array<int, int>  $graded
+     * @return array{total: int, complete: int}
+     */
+    private function courseTotals(Collection $courses, array $roster, array $graded): array
+    {
+        $complete = $courses->filter(function (Course $course) use ($roster, $graded) {
+            $expected = $this->expected($course, $roster);
+
+            return $expected > 0 && ($graded[$course->id] ?? 0) >= $expected;
+        })->count();
+
+        return ['total' => $courses->count(), 'complete' => $complete];
+    }
+
+    /**
+     * Cómo va este semestre frente al anterior: cuánto cambió la matrícula
+     * (en porcentaje) y el promedio (en puntos). Sin semestre anterior, o sin
+     * con qué comparar, la cifra queda en null y el tablero no la muestra.
+     *
+     * @param  \Illuminate\Support\Collection<int, string>  $terms
+     * @return array{term: ?string, enrollment: ?int, average: ?float}
+     */
+    private function comparison(\Illuminate\Support\Collection $terms, int $enrolled, ?float $average): array
+    {
+        $position = $terms->values()->search($this->term);
+        $previous = $position === false ? null : $terms->values()->get($position + 1);
+
+        if ($previous === null) {
+            return ['term' => null, 'enrollment' => null, 'average' => null];
+        }
+
+        [$year, $semester] = explode('-', $previous);
+
+        $cycleIds = Cycle::query()
+            ->where('year', (int) $year)
+            ->where('semester', (int) $semester)
+            ->pluck('id');
+
+        $enrolledBefore = Enrollment::query()->whereIn('cycle_id', $cycleIds)->count();
+
+        $averageBefore = Grade::query()
+            ->whereIn('course_id', Course::query()->whereIn('cycle_id', $cycleIds)->select('id'))
+            ->whereNotNull('score')
+            ->avg('score');
+
+        return [
+            'term' => $previous,
+            'enrollment' => $enrolledBefore > 0
+                ? (int) round(($enrolled - $enrolledBefore) / $enrolledBefore * 100)
+                : null,
+            'average' => $average !== null && $averageBefore !== null
+                ? round($average - (float) $averageBefore, 2)
+                : null,
         ];
     }
 

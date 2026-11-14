@@ -6,6 +6,42 @@
  * sirve para todas las variantes de la pantalla.
  */
 document.addEventListener('alpine:init', () => {
+    // Cifra que sube desde cero hasta su valor (tablero de inicio). El número
+    // final ya viene pintado desde el servidor; esto solo lo anima.
+    window.Alpine.data('countUp', (to, decimals = 0) => ({
+        shown: '',
+
+        init() {
+            const format = (value) => value.toLocaleString('en-US', {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals,
+            });
+
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                this.shown = format(to);
+
+                return;
+            }
+
+            const duration = 1100;
+            let start = null;
+            this.shown = format(0);
+
+            const tick = (now) => {
+                start ??= now;
+                const progress = Math.min((now - start) / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                this.shown = format(to * eased);
+
+                if (progress < 1) {
+                    requestAnimationFrame(tick);
+                }
+            };
+
+            requestAnimationFrame(tick);
+        },
+    }));
+
     window.Alpine.data('tour', (name, steps, autostart) => ({
         name,
         steps,

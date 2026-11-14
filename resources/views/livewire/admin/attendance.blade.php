@@ -1,7 +1,7 @@
 <section class="w-full">
     <div class="mb-6">
-        <div class="mb-1 flex items-center gap-2">
-            <flux:icon name="clipboard-document-check" class="size-6 text-zinc-500 dark:text-zinc-400" />
+        <div class="mb-1.5 flex items-center gap-3">
+            <flux:icon name="clipboard-document-check" class="panel-icon" />
             <flux:heading size="xl" level="1">{{ __('Asistencia') }}</flux:heading>
         </div>
         <flux:subheading>
@@ -42,11 +42,11 @@
     </div>
 
     @if ($subjects->isEmpty())
-        <div class="rounded-xl border border-zinc-200 bg-white p-8 text-center dark:border-zinc-700 dark:bg-zinc-900">
+        <div class="rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none p-8 text-center dark:border-zinc-700 dark:bg-zinc-900">
             <p class="text-sm text-zinc-400">{{ __('Este ciclo no tiene cursos.') }}</p>
         </div>
     @else
-        <div class="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+        <div class="overflow-x-auto rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none dark:border-zinc-700 dark:bg-zinc-900">
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b border-zinc-200 text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">

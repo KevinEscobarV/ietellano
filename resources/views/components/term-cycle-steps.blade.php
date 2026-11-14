@@ -8,7 +8,7 @@
     {{-- 1 · Semestre --}}
     <div class="mb-8" data-tour="term">
         <div class="mb-3 flex items-center gap-2">
-            <span class="flex size-6 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white dark:bg-white dark:text-zinc-900">1</span>
+            <span class="flex size-6 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">1</span>
             <flux:heading size="lg">{{ __('Semestre') }}</flux:heading>
         </div>
 
@@ -34,7 +34,7 @@
     {{-- 2 · Ciclo --}}
     <div class="mb-8">
         <div class="mb-3 flex items-center gap-2">
-            <span class="flex size-6 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white dark:bg-white dark:text-zinc-900">2</span>
+            <span class="flex size-6 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">2</span>
             <flux:heading size="lg">{{ __('Ciclo') }}</flux:heading>
         </div>
 
@@ -54,7 +54,7 @@
                         aria-pressed="{{ $active ? 'true' : 'false' }}"
                         @class([
                             'flex flex-col gap-3 rounded-xl border bg-white p-4 text-left transition dark:bg-zinc-900',
-                            'border-llano-jade ring-2 ring-llano-emerald/40 dark:border-llano-emerald' => $active,
+                            'border-accent ring-2 ring-accent/30' => $active,
                             'border-zinc-200 hover:border-zinc-300 hover:shadow-sm dark:border-zinc-700 dark:hover:border-zinc-600' => ! $active,
                         ])
                     >

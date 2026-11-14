@@ -3,93 +3,103 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-white dark:bg-zinc-800">
-        <flux:sidebar sticky collapsible="mobile" class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+    @php
+        $user = auth()->user();
+        $isAdmin = $user->hasAnyRole(['super-admin', 'admin']);
+
+        // El menú es un dato y no marcado suelto porque lo leen dos piezas:
+        // la barra lateral y la ruta de la barra superior («Sección / Página»).
+        // Cada ítem: [icono, ruta, patrones que lo marcan como actual, nombre].
+        $menu = array_filter([
+            '' => $user->isTeacherOnly() ? [] : [
+                ['home', 'dashboard', ['dashboard'], __('Inicio')],
+            ],
+            __('Docencia') => $user->isTeacher() ? [
+                ['book-open', 'teacher.courses', ['teacher.*'], __('Mis materias')],
+            ] : [],
+            __('Académico') => $isAdmin ? [
+                ['academic-cap', 'admin.students', ['admin.students'], __('Estudiantes')],
+                ['user-group', 'admin.teachers', ['admin.teachers'], __('Docentes')],
+                ['clipboard-document-check', 'admin.attendance', ['admin.attendance'], __('Asistencia')],
+                ['squares-2x2', 'admin.structure', ['admin.structure'], __('Estructura académica')],
+            ] : [],
+            __('Calificaciones') => $isAdmin ? [
+                ['arrow-up-tray', 'admin.grades', ['admin.grades'], __('Importar notas')],
+                ['pencil-square', 'admin.grade-editor', ['admin.grade-editor', 'admin.grade-editor.*'], __('Editar notas')],
+                ['lock-closed', 'admin.closure', ['admin.closure'], __('Cierre de módulos')],
+            ] : [],
+            __('Documentos') => $isAdmin ? [
+                ['document-text', 'admin.boletines', ['admin.boletines'], __('Boletines')],
+                ['document-check', 'admin.certificates', ['admin.certificates'], __('Certificados')],
+                ['table-cells', 'admin.consolidados', ['admin.consolidados'], __('Consolidados')],
+            ] : [],
+            __('Sistema') => $isAdmin ? [
+                ['users', 'admin.users', ['admin.users'], __('Usuarios')],
+                ['shield-check', 'admin.roles', ['admin.roles'], __('Roles')],
+            ] : [],
+        ]);
+
+        $crumb = request()->routeIs('*.edit') ? [__('Cuenta'), __('Settings')] : ['', ''];
+
+        foreach ($menu as $section => $items) {
+            foreach ($items as [, , $patterns, $name]) {
+                if (request()->routeIs(...$patterns)) {
+                    $crumb = [$section, $name];
+                }
+            }
+        }
+    @endphp
+    <body class="min-h-screen bg-zinc-100 dark:bg-zinc-950">
+        <flux:sidebar sticky collapsible="mobile" class="bg-white dark:bg-zinc-900">
             <flux:sidebar.header>
                 <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
                 <flux:sidebar.collapse class="lg:hidden" />
             </flux:sidebar.header>
 
             <flux:sidebar.nav>
-                @unless (auth()->user()->isTeacherOnly())
-                <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
-                    {{ __('Inicio') }}
-                </flux:sidebar.item>
-                @endunless
-
-                @if (auth()->user()->isTeacher())
-                <flux:sidebar.group :heading="__('Docencia')" class="grid">
-                    <flux:sidebar.item icon="book-open" :href="route('teacher.courses')" :current="request()->routeIs('teacher.*')" wire:navigate>
-                        {{ __('Mis materias') }}
-                    </flux:sidebar.item>
-                </flux:sidebar.group>
-                @endif
-
-                @hasanyrole('super-admin|admin')
-                {{-- Lo que se consulta a diario. --}}
-                <flux:sidebar.group :heading="__('Académico')" class="grid">
-                    <flux:sidebar.item icon="academic-cap" :href="route('admin.students')" :current="request()->routeIs('admin.students')" wire:navigate>
-                        {{ __('Estudiantes') }}
-                    </flux:sidebar.item>
-                    <flux:sidebar.item icon="user-group" :href="route('admin.teachers')" :current="request()->routeIs('admin.teachers')" wire:navigate>
-                        {{ __('Docentes') }}
-                    </flux:sidebar.item>
-                    <flux:sidebar.item icon="clipboard-document-check" :href="route('admin.attendance')" :current="request()->routeIs('admin.attendance')" wire:navigate>
-                        {{ __('Asistencia') }}
-                    </flux:sidebar.item>
-                    <flux:sidebar.item icon="squares-2x2" :href="route('admin.structure')" :current="request()->routeIs('admin.structure')" wire:navigate>
-                        {{ __('Estructura académica') }}
-                    </flux:sidebar.item>
-                </flux:sidebar.group>
-
-                <flux:sidebar.group :heading="__('Calificaciones')" class="grid">
-                    <flux:sidebar.item icon="arrow-up-tray" :href="route('admin.grades')" :current="request()->routeIs('admin.grades')" wire:navigate>
-                        {{ __('Importar notas') }}
-                    </flux:sidebar.item>
-                    <flux:sidebar.item icon="pencil-square" :href="route('admin.grade-editor')" :current="request()->routeIs('admin.grade-editor', 'admin.grade-editor.*')" wire:navigate>
-                        {{ __('Editar notas') }}
-                    </flux:sidebar.item>
-                    <flux:sidebar.item icon="lock-closed" :href="route('admin.closure')" :current="request()->routeIs('admin.closure')" wire:navigate>
-                        {{ __('Cierre de módulos') }}
-                    </flux:sidebar.item>
-                </flux:sidebar.group>
-
-                <flux:sidebar.group :heading="__('Documentos')" class="grid">
-                    <flux:sidebar.item icon="document-text" :href="route('admin.boletines')" :current="request()->routeIs('admin.boletines')" wire:navigate>
-                        {{ __('Boletines') }}
-                    </flux:sidebar.item>
-                    <flux:sidebar.item icon="document-check" :href="route('admin.certificates')" :current="request()->routeIs('admin.certificates')" wire:navigate>
-                        {{ __('Certificados') }}
-                    </flux:sidebar.item>
-                    <flux:sidebar.item icon="table-cells" :href="route('admin.consolidados')" :current="request()->routeIs('admin.consolidados')" wire:navigate>
-                        {{ __('Consolidados') }}
-                    </flux:sidebar.item>
-                </flux:sidebar.group>
-
-                <flux:sidebar.group :heading="__('Sistema')" class="grid">
-                    <flux:sidebar.item icon="users" :href="route('admin.users')" :current="request()->routeIs('admin.users')" wire:navigate>
-                        {{ __('Usuarios') }}
-                    </flux:sidebar.item>
-                    <flux:sidebar.item icon="shield-check" :href="route('admin.roles')" :current="request()->routeIs('admin.roles')" wire:navigate>
-                        {{ __('Roles') }}
-                    </flux:sidebar.item>
-                </flux:sidebar.group>
-                @endhasanyrole
+                @foreach ($menu as $section => $items)
+                    @if ($section === '')
+                        @foreach ($items as [$icon, $route, $patterns, $name])
+                            <flux:sidebar.item :icon="$icon" :href="route($route)" :current="request()->routeIs(...$patterns)" wire:navigate>
+                                {{ $name }}
+                            </flux:sidebar.item>
+                        @endforeach
+                    @else
+                        <flux:sidebar.group :heading="$section" class="grid">
+                            @foreach ($items as [$icon, $route, $patterns, $name])
+                                <flux:sidebar.item :icon="$icon" :href="route($route)" :current="request()->routeIs(...$patterns)" wire:navigate>
+                                    {{ $name }}
+                                </flux:sidebar.item>
+                            @endforeach
+                        </flux:sidebar.group>
+                    @endif
+                @endforeach
             </flux:sidebar.nav>
 
             <flux:spacer />
 
-
-            <x-desktop-user-menu class="hidden lg:block" :name="auth()->user()->name" />
+            <div class="hidden border-t border-zinc-100 pt-2 lg:block dark:border-zinc-800">
+                <x-desktop-user-menu :name="$user->name" />
+            </div>
         </flux:sidebar>
 
-        <!-- Mobile User Menu -->
-        <flux:header class="lg:hidden">
+        {{-- Barra superior: dónde estoy y, a la derecha, la cuenta. --}}
+        <flux:header class="max-lg:border-b max-lg:border-zinc-200 max-lg:bg-white lg:pt-4 max-lg:dark:border-zinc-800 max-lg:dark:bg-zinc-900">
             <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
+
+            <nav aria-label="{{ __('Ubicación') }}" class="flex min-w-0 items-center gap-2 text-sm max-lg:ms-2">
+                @if ($crumb[0] !== '')
+                    <span class="truncate text-zinc-400 max-sm:hidden dark:text-zinc-500">{{ $crumb[0] }}</span>
+                    <span class="text-zinc-300 max-sm:hidden dark:text-zinc-600">/</span>
+                @endif
+                <span class="truncate font-semibold text-zinc-800 dark:text-zinc-100">{{ $crumb[1] }}</span>
+            </nav>
 
             <flux:spacer />
 
-            <flux:dropdown position="top" align="end">
+            <flux:button :href="route('profile.edit')" wire:navigate variant="subtle" size="sm" icon="cog-6-tooth" :tooltip="__('Settings')" class="max-lg:hidden" />
+
+            <flux:dropdown position="top" align="end" class="lg:hidden">
                 <flux:profile
                     :initials="auth()->user()->initials()"
                     icon-trailing="chevron-down"

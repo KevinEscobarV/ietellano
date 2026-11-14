@@ -2,7 +2,7 @@
     <div class="grid gap-6 lg:grid-cols-3">
         {{-- Configuración --}}
         <div class="lg:col-span-1">
-            <div class="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-700 dark:bg-zinc-900">
+            <div class="rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none p-5 dark:border-zinc-700 dark:bg-zinc-900">
                 <flux:heading size="lg" class="mb-1">{{ __('Días de clase') }}</flux:heading>
                 <flux:subheading class="mb-5">
                     {{ __('El sistema genera un día de clase por semana entre las dos fechas. Los festivos se quitan después, uno a uno.') }}
@@ -48,7 +48,7 @@
 
         {{-- Sesiones --}}
         <div class="lg:col-span-2">
-            <div class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+            <div class="rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none dark:border-zinc-700 dark:bg-zinc-900">
                 <div class="flex items-baseline justify-between gap-4 border-b border-zinc-100 p-5 dark:border-zinc-800">
                     <flux:heading size="lg">{{ __('Calendario') }}</flux:heading>
                     <span class="text-sm tabular-nums text-zinc-500">
@@ -76,7 +76,7 @@
                                 wire:click="openDelete({{ $session->id }})"
                                 size="sm"
                                 icon="trash"
-                                variant="danger"
+                                variant="ghost" class="row-danger"
                                 inset="top bottom"
                             />
                         </li>

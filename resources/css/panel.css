@@ -1,0 +1,325 @@
+/*
+| El panel de administración y de docentes: un lienzo gris muy suave con las
+| superficies —tarjetas, tablas, menú lateral— en blanco y un azul como único
+| color de acción.
+|
+| Vive en CSS y no en utilidades porque retoca piezas de Flux cuyo marcado no
+| es nuestro (la tabla, el ítem del menú, el encabezado). Al ir fuera de las
+| capas de Tailwind, estas reglas les ganan a las utilidades de Flux sin `!`.
+*/
+
+@utility panel-card {
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-zinc-200);
+    background: var(--color-white);
+    box-shadow: var(--shadow-card);
+
+    &:where(.dark, .dark *) {
+        border-color: var(--color-zinc-800);
+        background: var(--color-zinc-900);
+        box-shadow: none;
+    }
+}
+
+/* El cuadrito con el icono que abre cada página. */
+@utility panel-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0.5rem;
+    border-radius: var(--radius-lg);
+    color: var(--color-accent-content);
+    background: color-mix(in oklab, var(--color-accent) 12%, transparent);
+}
+
+/* El cuadro relleno con el icono de cada cifra del tablero. */
+@utility panel-tile-icon {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: var(--radius-xl);
+    color: var(--color-accent-foreground);
+    background: var(--tile, var(--color-accent));
+    box-shadow: 0 8px 16px -6px color-mix(in oklab, var(--tile, var(--color-accent)) 60%, transparent);
+}
+
+/*
+| Las acciones de una fila van en gris y solo toman color al pasar; borrar se
+| pone rojo ahí mismo, para que la tabla no grite con un botón rojo por fila.
+*/
+[data-flux-main] [data-flux-cell] [data-flux-button].w-8:not(:hover),
+[data-flux-main] .row-danger:not(:hover) {
+    color: var(--color-zinc-500);
+}
+
+[data-flux-main] .row-danger:hover {
+    color: var(--color-rose-600);
+    background: var(--color-rose-50);
+}
+
+.dark [data-flux-main] .row-danger:hover {
+    color: var(--color-rose-300);
+    background: color-mix(in oklab, var(--color-rose-500) 15%, transparent);
+}
+
+/* ---------- Títulos ---------- */
+
+[data-flux-main] h1[data-flux-heading] {
+    font-size: 1.625rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+/* ---------- Menú lateral: una tarjeta que flota sobre el lienzo ---------- */
+
+@media (min-width: 1024px) {
+    [data-flux-sidebar] {
+        top: 1rem;
+        height: calc(100dvh - 2rem);
+        max-height: calc(100dvh - 2rem);
+        margin: 1rem 0 1rem 1rem;
+        border: 1px solid var(--color-zinc-200);
+        border-radius: var(--radius-2xl);
+        box-shadow: var(--shadow-card);
+    }
+
+    .dark [data-flux-sidebar] {
+        border-color: var(--color-zinc-800);
+        box-shadow: none;
+    }
+}
+
+[data-flux-sidebar] {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-zinc-300) transparent;
+}
+
+[data-flux-sidebar] [data-flux-sidebar-group] {
+    margin-top: 0.75rem;
+}
+
+[data-flux-sidebar] [data-flux-sidebar-group] > div:first-child > div {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-zinc-900);
+}
+
+[data-flux-sidebar] [data-flux-sidebar-item] {
+    height: 2.25rem;
+    border-radius: var(--radius-lg);
+    color: var(--color-zinc-700);
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+[data-flux-sidebar] [data-flux-sidebar-item]:hover {
+    color: var(--color-zinc-900);
+    background: var(--color-zinc-100);
+}
+
+/* La página actual va rellena, como un botón: se ubica de un vistazo. */
+[data-flux-sidebar] [data-flux-sidebar-item][data-current],
+[data-flux-sidebar] [data-flux-sidebar-item][data-current]:hover {
+    border-color: transparent;
+    color: var(--color-accent-foreground);
+    background: var(--color-accent);
+    box-shadow: 0 6px 14px -6px color-mix(in oklab, var(--color-accent) 70%, transparent);
+}
+
+[data-flux-sidebar] [data-flux-sidebar-item][data-current] [data-content] {
+    font-weight: 600;
+}
+
+.dark [data-flux-sidebar] [data-flux-sidebar-group] > div:first-child > div {
+    color: var(--color-white);
+}
+
+.dark [data-flux-sidebar] [data-flux-sidebar-item]:not([data-current]) {
+    color: var(--color-zinc-300);
+}
+
+.dark [data-flux-sidebar] [data-flux-sidebar-item]:not([data-current]):hover {
+    color: var(--color-white);
+    background: rgb(255 255 255 / 0.06);
+}
+
+/* ---------- Tablas: una tarjeta con cabecera propia ---------- */
+
+[data-flux-main] div:has(> ui-table-scroll-area) {
+    overflow: hidden;
+    border-radius: var(--radius-xl);
+    border: 1px solid var(--color-zinc-200);
+    background: var(--color-white);
+    box-shadow: var(--shadow-card);
+}
+
+[data-flux-main] [data-flux-table] :is(th, td):first-child {
+    padding-inline-start: 1.25rem;
+}
+
+[data-flux-main] [data-flux-table] :is(th, td):last-child {
+    padding-inline-end: 1.25rem;
+}
+
+[data-flux-main] [data-flux-table] [data-flux-column] {
+    padding-block: 0.625rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-zinc-500);
+    background: var(--color-zinc-50);
+    border-color: var(--color-zinc-200);
+}
+
+[data-flux-main] [data-flux-table] [data-flux-cell] {
+    border-color: var(--color-zinc-100);
+}
+
+[data-flux-main] [data-flux-table] tbody [data-flux-row] {
+    transition: background-color 0.12s ease;
+}
+
+[data-flux-main] [data-flux-table] tbody [data-flux-row]:hover {
+    background: var(--color-zinc-50);
+}
+
+[data-flux-main] div:has(> ui-table-scroll-area) > [data-flux-pagination] {
+    padding: 0.75rem 1.25rem;
+    border-color: var(--color-zinc-200);
+}
+
+.dark [data-flux-main] div:has(> ui-table-scroll-area) {
+    border-color: var(--color-zinc-800);
+    background: var(--color-zinc-900);
+    box-shadow: none;
+}
+
+.dark [data-flux-main] [data-flux-table] [data-flux-column] {
+    color: var(--color-zinc-400);
+    background: rgb(255 255 255 / 0.03);
+    border-color: var(--color-zinc-800);
+}
+
+.dark [data-flux-main] [data-flux-table] [data-flux-cell],
+.dark [data-flux-main] div:has(> ui-table-scroll-area) > [data-flux-pagination] {
+    border-color: var(--color-zinc-800);
+}
+
+.dark [data-flux-main] [data-flux-table] tbody [data-flux-row]:hover {
+    background: rgb(255 255 255 / 0.03);
+}
+
+/* ---------- Tablero de inicio ---------- */
+
+/*
+| La portada pinta sus colores de forma explícita —no sigue el tema— porque
+| el texto va siempre en blanco sobre el azul.
+*/
+.dash-hero {
+    background: linear-gradient(125deg, #3b6cf6 0%, #2f5bea 38%, #2340b8 72%, #1b2f86 100%);
+    box-shadow: 0 18px 40px -22px rgb(47 91 234 / 0.75);
+}
+
+.dash-hero-glow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.dash-hero-glow b {
+    position: absolute;
+    display: block;
+    border-radius: 50%;
+    filter: blur(48px);
+    will-change: transform;
+}
+
+.dash-hero-glow b:nth-child(1) {
+    top: -45%;
+    right: 8%;
+    width: 22rem;
+    height: 22rem;
+    background: rgb(120 170 255 / 0.55);
+    animation: dash-drift-a 16s ease-in-out infinite;
+}
+
+.dash-hero-glow b:nth-child(2) {
+    bottom: -60%;
+    left: 22%;
+    width: 26rem;
+    height: 26rem;
+    background: rgb(99 102 241 / 0.5);
+    animation: dash-drift-b 21s ease-in-out infinite;
+}
+
+.dash-hero-glow b:nth-child(3) {
+    top: 10%;
+    right: -6%;
+    width: 12rem;
+    height: 12rem;
+    background: rgb(56 189 248 / 0.4);
+    animation: dash-drift-a 13s ease-in-out infinite reverse;
+}
+
+/* Las tarjetas suben una tras otra; --i es el turno de cada una. */
+.dash-rise {
+    animation: dash-rise 0.6s cubic-bezier(0.16, 0.84, 0.44, 1) both;
+    animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+/*
+| Las gráficas crecen desde cero hasta su valor. Los fotogramas solo dicen
+| de dónde salen: el destino es el tamaño que ya trae cada marca en línea.
+*/
+.dash-grow-x {
+    animation: dash-grow-x 1s cubic-bezier(0.16, 0.84, 0.44, 1) both;
+    animation-delay: calc(350ms + var(--i, 0) * 90ms);
+}
+
+.dash-grow-y {
+    animation: dash-grow-y 0.9s cubic-bezier(0.16, 0.84, 0.44, 1) both;
+    animation-delay: calc(450ms + var(--i, 0) * 80ms);
+}
+
+.dash-ring {
+    animation: dash-ring 1.3s cubic-bezier(0.16, 0.84, 0.44, 1) 0.3s both;
+}
+
+@keyframes dash-rise {
+    from { opacity: 0; transform: translateY(14px); }
+}
+
+@keyframes dash-grow-x {
+    from { width: 0; }
+}
+
+@keyframes dash-grow-y {
+    from { height: 0; }
+}
+
+@keyframes dash-ring {
+    from { stroke-dasharray: 0 100; }
+}
+
+@keyframes dash-drift-a {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+    50% { transform: translate3d(-3rem, 2rem, 0) scale(1.15); }
+}
+
+@keyframes dash-drift-b {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1.05); }
+    50% { transform: translate3d(4rem, -1.5rem, 0) scale(0.9); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dash-rise,
+    .dash-grow-x,
+    .dash-grow-y,
+    .dash-ring,
+    .dash-hero-glow b {
+        animation: none !important;
+    }
+}

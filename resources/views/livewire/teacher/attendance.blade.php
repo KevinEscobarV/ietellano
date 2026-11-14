@@ -1,7 +1,7 @@
 @php
     use App\Enums\AttendanceStatus;
 
-    $card = 'rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900';
+    $card = 'rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none dark:border-zinc-700 dark:bg-zinc-900';
     $label = 'text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400';
 
     // El estado se lee de un vistazo por el color, igual que la escala de notas

@@ -8,8 +8,8 @@
     {{-- Encabezado --}}
     <div class="mb-8 flex flex-wrap items-start justify-between gap-3">
         <div class="max-w-3xl">
-            <div class="mb-1 flex items-center gap-2">
-                <flux:icon name="lock-closed" class="size-6 text-zinc-500 dark:text-zinc-400" />
+            <div class="mb-1.5 flex items-center gap-3">
+                <flux:icon name="lock-closed" class="panel-icon" />
                 <flux:heading size="xl" level="1">{{ __('Cierre de módulos') }}</flux:heading>
             </div>
             <flux:subheading>
@@ -131,7 +131,7 @@
         <div class="grid gap-6 lg:grid-cols-5">
             {{-- Por ciclo --}}
             <div class="lg:col-span-3" data-tour="cycles">
-                <div class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+                <div class="rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none dark:border-zinc-700 dark:bg-zinc-900">
                     <div class="border-b border-zinc-100 p-5 dark:border-zinc-800">
                         <flux:heading size="lg">{{ __('Por ciclo') }}</flux:heading>
                         <flux:text class="text-sm">{{ __('Para cuando un ciclo va a otro ritmo. Haz clic en un módulo para cerrarlo, programarlo o reabrirlo solo en ese ciclo.') }}</flux:text>
@@ -195,7 +195,7 @@
 
             {{-- Ventanas --}}
             <div class="lg:col-span-2" data-tour="windows">
-                <div class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900">
+                <div class="rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none dark:border-zinc-700 dark:bg-zinc-900">
                     <div class="flex items-start justify-between gap-3 border-b border-zinc-100 p-5 dark:border-zinc-800">
                         <div>
                             <flux:heading size="lg">{{ __('Ventanas de edición') }}</flux:heading>

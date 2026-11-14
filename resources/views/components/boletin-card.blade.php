@@ -14,7 +14,7 @@
     }
 </style>
 
-<div id="boletin" class="mx-auto max-w-3xl rounded-xl border border-zinc-200 bg-white p-8 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 print:max-w-none">
+<div id="boletin" class="mx-auto max-w-3xl rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none print:shadow-none p-8 text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 print:max-w-none">
     {{-- Institution header --}}
     <div class="mb-6 flex items-center justify-center gap-4 text-center">
         <img src="{{ asset('images/logo.png') }}" alt="{{ __('Logo') }}" class="size-20 shrink-0 object-contain">

@@ -1,9 +1,9 @@
 <section class="w-full">
     {{-- Page Header --}}
-    <div class="mb-8 flex items-start justify-between">
+    <div class="mb-8 flex flex-wrap items-start justify-between gap-3">
         <div>
-            <div class="mb-1 flex items-center gap-2">
-                <flux:icon name="users" class="size-6 text-zinc-500 dark:text-zinc-400" />
+            <div class="mb-1.5 flex items-center gap-3">
+                <flux:icon name="users" class="panel-icon" />
                 <flux:heading size="xl" level="1">{{ __('Users') }}</flux:heading>
             </div>
             <flux:subheading>{{ __('Manage user accounts and assign roles') }}</flux:subheading>
@@ -73,7 +73,7 @@
                                     wire:click="openDelete({{ $user->id }})"
                                     size="sm"
                                     icon="trash"
-                                    variant="danger"
+                                    variant="ghost" class="row-danger"
                                     inset="top bottom"
                                     :tooltip="__('Delete')"
                                 />

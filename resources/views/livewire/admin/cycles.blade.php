@@ -30,7 +30,7 @@
                     <flux:table.cell>
                         <div class="flex items-center justify-end gap-1">
                             <flux:button wire:click="openEdit({{ $cycle->id }})" size="sm" icon="pencil" variant="ghost" inset="top bottom" />
-                            <flux:button wire:click="openDelete({{ $cycle->id }})" size="sm" icon="trash" variant="danger" inset="top bottom" />
+                            <flux:button wire:click="openDelete({{ $cycle->id }})" size="sm" icon="trash" variant="ghost" class="row-danger" inset="top bottom" />
                         </div>
                     </flux:table.cell>
                 </flux:table.row>

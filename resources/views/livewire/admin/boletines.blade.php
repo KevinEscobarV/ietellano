@@ -2,8 +2,8 @@
     {{-- Encabezado --}}
     <div class="mb-8 flex flex-wrap items-start justify-between gap-3 print:hidden">
         <div>
-            <div class="mb-1 flex items-center gap-2">
-                <flux:icon name="document-text" class="size-6 text-zinc-500 dark:text-zinc-400" />
+            <div class="mb-1.5 flex items-center gap-3">
+                <flux:icon name="document-text" class="panel-icon" />
                 <flux:heading size="xl" level="1">{{ __('Boletines') }}</flux:heading>
             </div>
             <flux:subheading>{{ __('Elige el semestre, el ciclo y el estudiante para ver, imprimir o descargar su boletín.') }}</flux:subheading>
@@ -20,7 +20,7 @@
         {{-- 3 · Estudiante --}}
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
             <div class="flex items-center gap-2">
-                <span class="flex size-6 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white dark:bg-white dark:text-zinc-900">3</span>
+                <span class="flex size-6 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">3</span>
                 <flux:heading size="lg">{{ __('Estudiante de :cycle', ['cycle' => $selected->name]) }}</flux:heading>
             </div>
 

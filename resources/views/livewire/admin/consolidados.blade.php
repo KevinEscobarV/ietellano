@@ -7,8 +7,8 @@
     {{-- Encabezado --}}
     <div class="mb-8 flex flex-wrap items-start justify-between gap-3">
         <div>
-            <div class="mb-1 flex items-center gap-2">
-                <flux:icon name="table-cells" class="size-6 text-zinc-500 dark:text-zinc-400" />
+            <div class="mb-1.5 flex items-center gap-3">
+                <flux:icon name="table-cells" class="panel-icon" />
                 <flux:heading size="xl" level="1">{{ __('Consolidados') }}</flux:heading>
             </div>
             <flux:subheading>{{ __('Las notas de todo un ciclo en una tabla, para ver de un vistazo cómo le fue a cada estudiante y a cada materia.') }}</flux:subheading>
@@ -48,7 +48,7 @@
         {{-- 3 · Consolidado --}}
         <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div class="flex items-center gap-2">
-                <span class="flex size-6 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white dark:bg-white dark:text-zinc-900">3</span>
+                <span class="flex size-6 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">3</span>
                 <flux:heading size="lg">{{ __('Consolidado de :cycle', ['cycle' => $selected->name]) }}</flux:heading>
             </div>
 
@@ -170,7 +170,7 @@
             {{-- Lectura rápida --}}
             <div class="mb-6 space-y-3" data-tour="summary">
                 <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+                    <div class="rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none p-4 dark:border-zinc-700 dark:bg-zinc-900">
                         <div class="text-xs font-medium uppercase tracking-wide text-zinc-500">{{ __('Estudiantes') }}</div>
                         <div class="mt-1 text-2xl font-semibold tabular-nums text-zinc-900 dark:text-zinc-100">{{ $s['students'] }}</div>
                         @if ($s['without_previous'] > 0)
@@ -181,13 +181,13 @@
                         @endif
                     </div>
 
-                    <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+                    <div class="rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none p-4 dark:border-zinc-700 dark:bg-zinc-900">
                         <div class="text-xs font-medium uppercase tracking-wide text-zinc-500">{{ __('Promedio del ciclo') }}</div>
                         <div @class(['mt-1 text-2xl font-semibold tabular-nums', 'text-red-600 dark:text-red-400' => $isFail($s['average']), 'text-zinc-900 dark:text-zinc-100' => ! $isFail($s['average'])])>{{ $num($s['average']) }}</div>
                         <div class="mt-0.5 text-xs text-zinc-500">{{ $s['performance'] ?? __('Sin notas') }}</div>
                     </div>
 
-                    <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+                    <div class="rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none p-4 dark:border-zinc-700 dark:bg-zinc-900">
                         <div class="text-xs font-medium uppercase tracking-wide text-zinc-500">{{ __('Aprueban todo') }}</div>
                         <div class="mt-1 text-2xl font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">{{ $s['all_passed'] }}</div>
                         <div class="mt-0.5 text-xs text-zinc-500">
@@ -215,7 +215,7 @@
                 </div>
 
                 <div class="grid gap-3 lg:grid-cols-2">
-                    <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+                    <div class="rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none p-4 dark:border-zinc-700 dark:bg-zinc-900">
                         <div class="mb-3 text-xs font-medium uppercase tracking-wide text-zinc-500">{{ __('Donde más se pierde') }}</div>
 
                         @forelse ($s['hardest'] as $hardest)
@@ -234,7 +234,7 @@
                         @endforelse
                     </div>
 
-                    <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900">
+                    <div class="rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none p-4 dark:border-zinc-700 dark:bg-zinc-900">
                         <div class="mb-3 text-xs font-medium uppercase tracking-wide text-zinc-500">{{ __('Desempeño de los promedios') }}</div>
 
                         @php
@@ -275,7 +275,7 @@
                 @endif
 
                 @if ($consolidado['dropped'] !== [])
-                    <details class="group rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900" data-tour="dropped">
+                    <details class="group rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none dark:border-zinc-700 dark:bg-zinc-900" data-tour="dropped">
                         <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm">
                             <span class="flex items-center gap-2">
                                 <flux:icon name="user-minus" class="size-4 text-zinc-400" />

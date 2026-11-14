@@ -1,7 +1,7 @@
 <section class="w-full">
     <div class="mb-6">
-        <div class="mb-1 flex items-center gap-2">
-            <flux:icon name="squares-2x2" class="size-6 text-zinc-500 dark:text-zinc-400" />
+        <div class="mb-1.5 flex items-center gap-3">
+            <flux:icon name="squares-2x2" class="panel-icon" />
             <flux:heading size="xl" level="1">{{ __('Estructura académica') }}</flux:heading>
         </div>
         <flux:subheading>{{ __('Administrar ciclos, grupos, materias, cursos y áreas') }}</flux:subheading>

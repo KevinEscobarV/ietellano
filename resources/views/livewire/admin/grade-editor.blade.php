@@ -1,6 +1,6 @@
 @php
     $pill = 'rounded-full px-3 py-1.5 text-sm font-medium transition';
-    $pillOn = 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900';
+    $pillOn = 'bg-accent text-accent-foreground shadow-xs';
     $pillOff = 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700';
 @endphp
 
@@ -8,8 +8,8 @@
     {{-- Encabezado --}}
     <div class="mb-8 flex flex-wrap items-start justify-between gap-3">
         <div>
-            <div class="mb-1 flex items-center gap-2">
-                <flux:icon name="pencil-square" class="size-6 text-zinc-500 dark:text-zinc-400" />
+            <div class="mb-1.5 flex items-center gap-3">
+                <flux:icon name="pencil-square" class="panel-icon" />
                 <flux:heading size="xl" level="1">{{ __('Editar notas') }}</flux:heading>
             </div>
             <flux:subheading>{{ __('Elige el semestre, el ciclo y la materia para ver o corregir sus notas.') }}</flux:subheading>
@@ -21,7 +21,7 @@
     {{-- 1 · Semestre --}}
     <div class="mb-8" data-tour="term">
         <div class="mb-3 flex items-center gap-2">
-            <span class="flex size-6 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white dark:bg-white dark:text-zinc-900">1</span>
+            <span class="flex size-6 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">1</span>
             <flux:heading size="lg">{{ __('Semestre') }}</flux:heading>
         </div>
 
@@ -47,7 +47,7 @@
     {{-- 2 · Ciclo --}}
     <div class="mb-8">
         <div class="mb-3 flex items-center gap-2">
-            <span class="flex size-6 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white dark:bg-white dark:text-zinc-900">2</span>
+            <span class="flex size-6 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">2</span>
             <flux:heading size="lg">{{ __('Ciclo') }}</flux:heading>
         </div>
 
@@ -67,7 +67,7 @@
                         aria-pressed="{{ $active ? 'true' : 'false' }}"
                         @class([
                             'flex flex-col gap-3 rounded-xl border bg-white p-4 text-left transition dark:bg-zinc-900',
-                            'border-llano-jade ring-2 ring-llano-emerald/40 dark:border-llano-emerald' => $active,
+                            'border-accent ring-2 ring-accent/30' => $active,
                             'border-zinc-200 hover:border-zinc-300 hover:shadow-sm dark:border-zinc-700 dark:hover:border-zinc-600' => ! $active,
                         ])
                     >
@@ -112,7 +112,7 @@
     @if ($selected)
         <div>
             <div class="mb-3 flex items-center gap-2">
-                <span class="flex size-6 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold text-white dark:bg-white dark:text-zinc-900">3</span>
+                <span class="flex size-6 items-center justify-center rounded-full bg-accent text-xs font-semibold text-accent-foreground">3</span>
                 <flux:heading size="lg">{{ __('Materias de :cycle', ['cycle' => $selected->name]) }}</flux:heading>
             </div>
 
@@ -190,7 +190,7 @@
                                 wire:navigate
                                 wire:key="course-{{ $card['id'] }}"
                                 @if ($loop->parent->first && $loop->first) data-tour="course" @endif
-                                class="group flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-4 transition hover:border-zinc-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-llano-emerald dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600"
+                                class="group flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white shadow-card dark:shadow-none p-4 transition hover:border-zinc-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-accent dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-zinc-600"
                             >
                                 <div class="flex items-start justify-between gap-3">
                                     <div class="min-w-0">
@@ -246,7 +246,7 @@
                                         </span>
                                     @endif
 
-                                    <span class="flex items-center gap-0.5 font-medium text-llano-jade dark:text-llano-emerald">
+                                    <span class="flex items-center gap-0.5 font-medium text-accent-content">
                                         {{ __('Abrir') }}
                                         <flux:icon name="arrow-right" variant="micro" class="size-3.5 transition-transform group-hover:translate-x-0.5" />
                                     </span>
